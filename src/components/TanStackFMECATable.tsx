@@ -351,7 +351,10 @@ export function TanStackFMECATable({
 
       {/* Single table with fixed header and scrollable body */}
       <div className="flex-1 overflow-auto">
-        <table className="w-full" style={{ width: table.getCenterTotalSize() }}>
+        <table
+          className="w-full min-w-full"
+          style={{ width: Math.max(table.getCenterTotalSize(), 800) }}
+        >
           <thead className="bg-gray-50 dark:bg-gray-700/50 sticky top-0 z-10">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>

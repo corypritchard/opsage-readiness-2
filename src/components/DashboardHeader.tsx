@@ -162,34 +162,34 @@ const DashboardHeader = () => {
         {/* Left side - Logo and Project Info */}
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-3">
-            <img
-              src={
-                resolvedTheme === "dark"
-                  ? "/lovable-uploads/99e1c9c8-57aa-4386-91f7-9fba40624b01-white.png"
-                  : "/lovable-uploads/99e1c9c8-57aa-4386-91f7-9fba40624b01.png"
+          <img
+            src={
+              resolvedTheme === "dark"
+                ? "/lovable-uploads/99e1c9c8-57aa-4386-91f7-9fba40624b01-white.png"
+                : "/lovable-uploads/99e1c9c8-57aa-4386-91f7-9fba40624b01.png"
+            }
+            alt="Opsage Logo"
+            className={`h-12 w-auto object-contain${
+              resolvedTheme === "dark" ? " dark-logo-fallback" : ""
+            }`}
+            style={
+              resolvedTheme === "dark"
+                ? { filter: "brightness(0) invert(1)" }
+                : undefined
+            }
+            onError={(e) => {
+              if (resolvedTheme === "dark") {
+                (e.currentTarget as HTMLImageElement).src =
+                  "/lovable-uploads/99e1c9c8-57aa-4386-91f7-9fba40624b01.png";
+                (e.currentTarget as HTMLImageElement).style.filter =
+                  "brightness(0) invert(1)";
               }
-              alt="Opsage Logo"
-              className={`h-12 w-auto object-contain${
-                resolvedTheme === "dark" ? " dark-logo-fallback" : ""
-              }`}
-              style={
-                resolvedTheme === "dark"
-                  ? { filter: "brightness(0) invert(1)" }
-                  : undefined
-              }
-              onError={(e) => {
-                if (resolvedTheme === "dark") {
-                  (e.currentTarget as HTMLImageElement).src =
-                    "/lovable-uploads/99e1c9c8-57aa-4386-91f7-9fba40624b01.png";
-                  (e.currentTarget as HTMLImageElement).style.filter =
-                    "brightness(0) invert(1)";
-                }
-              }}
-            />
+            }}
+          />
             <span className="bg-blue-50 text-blue-700 ring-blue-600/20 dark:bg-blue-400/10 dark:text-blue-400 dark:ring-blue-400/20 px-3 py-1 text-xs font-medium ring-1 ring-inset rounded-full font-mono">
               0.1.0-alpha
-            </span>
-          </div>
+                    </span>
+                  </div>
 
           {/* Project Selector */}
           {currentProject && (
@@ -209,7 +209,7 @@ const DashboardHeader = () => {
                   <SelectValue placeholder="Switch project" />
                 </SelectTrigger>
                 <SelectContent>
-                  {projects.map((project) => (
+                {projects.map((project) => (
                     <SelectItem key={project.id} value={project.id}>
                       {project.name}
                     </SelectItem>
@@ -276,13 +276,13 @@ const DashboardHeader = () => {
                   </div>
                 </DialogContent>
               </Dialog>
-            </div>
+          </div>
           )}
         </div>
 
         {/* Right side - User controls */}
         <div className="flex items-center gap-3">
-          <ThemeToggle />
+            <ThemeToggle />
 
           <div className="flex items-center gap-2">
             <Avatar className="h-8 w-8">

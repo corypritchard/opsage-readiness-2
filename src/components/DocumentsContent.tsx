@@ -383,29 +383,29 @@ export function DocumentsContent({ className }: { className?: string }) {
         </div>
       )}
 
-      <div className="h-full flex flex-col mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="h-full flex flex-col w-full px-4 py-8 sm:px-6 lg:px-8">
         {filteredDocuments.length > 0 ? (
           <>
-            {/* Header Section */}
+        {/* Header Section */}
             <div className="mb-8 flex-shrink-0">
-              <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl icon-primary">
-                    <FileText className="h-6 w-6 text-white" />
-                  </div>
-                  <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-                      Documents
-                    </h1>
-                    <p className="text-gray-600 dark:text-gray-400">
-                      Manage and organize your asset documentation
-                    </p>
-                  </div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl icon-primary">
+                <FileText className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+                  Documents
+                </h1>
+                <p className="text-gray-600 dark:text-gray-400">
+                  Manage and organize your asset documentation
+                </p>
+              </div>
                   <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
                     <FileText className="h-3 w-3" />
                     {documents.length} documents
                   </div>
-                </div>
+            </div>
 
                 <div className="flex items-center gap-3">
                   <Dialog
@@ -413,10 +413,10 @@ export function DocumentsContent({ className }: { className?: string }) {
                     onOpenChange={setShowUploadDialog}
                   >
                     <DialogTrigger asChild>
-                      <Button className="h-11 btn-primary">
-                        <Upload className="h-4 w-4 mr-2" />
-                        Upload Document
-                      </Button>
+            <Button className="h-11 btn-primary">
+              <Upload className="h-4 w-4 mr-2" />
+              Upload Document
+            </Button>
                     </DialogTrigger>
                     <DialogContent className="sm:max-w-2xl">
                       <DialogHeader>
@@ -587,176 +587,176 @@ export function DocumentsContent({ className }: { className?: string }) {
                     </DialogContent>
                   </Dialog>
                 </div>
-              </div>
-            </div>
+          </div>
+        </div>
 
-            {/* Search and Filter Bar */}
+        {/* Search and Filter Bar */}
             <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between flex-shrink-0">
-              <div className="flex flex-1 gap-4">
-                <div className="relative flex-1 max-w-md">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                  <Input
-                    placeholder="Search documents..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 h-11 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-                  />
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Filter className="h-4 w-4 text-gray-400" />
-                  <select
-                    value={selectedStatus}
-                    onChange={(e) => setSelectedStatus(e.target.value)}
-                    className="h-11 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="all">All Status</option>
-                    <option value="active">Active</option>
-                    <option value="pending">Pending</option>
-                    <option value="archived">Archived</option>
-                  </select>
-                </div>
-              </div>
+          <div className="flex flex-1 gap-4">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <Input
+                placeholder="Search documents..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 h-11 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+              />
             </div>
+
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-gray-400" />
+              <select
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+                className="h-11 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="pending">Pending</option>
+                <option value="archived">Archived</option>
+              </select>
+            </div>
+          </div>
+        </div>
 
             {/* Documents Table - Takes remaining height */}
             <div className="flex-1 min-h-0 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
               <div className="overflow-x-auto h-full">
-                <table className="w-full">
-                  <thead className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-600">
-                    <tr>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                        Document
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                        Asset
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                        Description
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                        Uploaded
-                      </th>
-                      <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
-                    {filteredDocuments.map((doc) => {
-                      const FileIcon = getFileIcon(doc.type);
-                      return (
-                        <tr
-                          key={doc.id}
-                          className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                        >
-                          <td className="px-6 py-4">
-                            <div className="flex items-start gap-3">
-                              <div className="flex h-10 w-10 items-center justify-center rounded-lg icon-primary">
-                                <FileIcon className="h-5 w-5 text-white" />
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <h4 className="font-semibold text-gray-900 dark:text-white truncate">
-                                  {doc.name}
-                                </h4>
-                                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                                  {doc.type} • {doc.size}
-                                </p>
-                              </div>
+              <table className="w-full">
+                <thead className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-600">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                      Document
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                      Asset
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                      Description
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                      Uploaded
+                    </th>
+                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
+                  {filteredDocuments.map((doc) => {
+                    const FileIcon = getFileIcon(doc.type);
+                    return (
+                      <tr
+                        key={doc.id}
+                        className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                      >
+                        <td className="px-6 py-4">
+                          <div className="flex items-start gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-lg icon-primary">
+                              <FileIcon className="h-5 w-5 text-white" />
                             </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <p className="text-sm font-medium text-gray-900 dark:text-white">
-                              {getAssetName(doc.assetId)}
-                            </p>
-                          </td>
-                          <td className="px-6 py-4">
-                            <Badge
-                              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${getStatusStyles(
-                                doc.status
-                              )}`}
+                            <div className="min-w-0 flex-1">
+                              <h4 className="font-semibold text-gray-900 dark:text-white truncate">
+                                {doc.name}
+                              </h4>
+                              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                {doc.type} • {doc.size}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">
+                            {getAssetName(doc.assetId)}
+                          </p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <Badge
+                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${getStatusStyles(
+                              doc.status
+                            )}`}
+                          >
+                            {doc.status}
+                          </Badge>
+                        </td>
+                        <td className="px-6 py-4">
+                          {editingId === doc.id ? (
+                            <input
+                              type="text"
+                              className="w-full p-1 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400 bg-background text-foreground"
+                              value={editValue}
+                              onChange={handleEditChange}
+                              onBlur={() => handleEditSave(doc.id)}
+                              onKeyDown={(e) => handleEditKeyDown(e, doc.id)}
+                              autoFocus
+                            />
+                          ) : (
+                            <span
+                              className="cursor-pointer hover:underline text-sm text-gray-600 dark:text-gray-400"
+                              onClick={() =>
+                                handleEditStart(doc.id, doc.description)
+                              }
+                              title="Click to edit description"
                             >
-                              {doc.status}
-                            </Badge>
-                          </td>
-                          <td className="px-6 py-4">
-                            {editingId === doc.id ? (
-                              <input
-                                type="text"
-                                className="w-full p-1 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400 bg-background text-foreground"
-                                value={editValue}
-                                onChange={handleEditChange}
-                                onBlur={() => handleEditSave(doc.id)}
-                                onKeyDown={(e) => handleEditKeyDown(e, doc.id)}
-                                autoFocus
-                              />
-                            ) : (
-                              <span
-                                className="cursor-pointer hover:underline text-sm text-gray-600 dark:text-gray-400"
+                              {doc.description || (
+                                <span className="text-muted-foreground italic">
+                                  (No description)
+                                </span>
+                              )}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
+                          {new Date(doc.uploadDate).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48">
+                              <DropdownMenuItem>
+                                <Eye className="mr-2 h-4 w-4" />
+                                View Document
+                              </DropdownMenuItem>
+                              <DropdownMenuItem>
+                                <Download className="mr-2 h-4 w-4" />
+                                Download
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
                                 onClick={() =>
                                   handleEditStart(doc.id, doc.description)
                                 }
-                                title="Click to edit description"
                               >
-                                {doc.description || (
-                                  <span className="text-muted-foreground italic">
-                                    (No description)
-                                  </span>
-                                )}
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
-                            {new Date(doc.uploadDate).toLocaleDateString()}
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 w-8 p-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                                >
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-48">
-                                <DropdownMenuItem>
-                                  <Eye className="mr-2 h-4 w-4" />
-                                  View Document
-                                </DropdownMenuItem>
-                                <DropdownMenuItem>
-                                  <Download className="mr-2 h-4 w-4" />
-                                  Download
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    handleEditStart(doc.id, doc.description)
-                                  }
-                                >
-                                  <Edit className="mr-2 h-4 w-4" />
-                                  Edit Description
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  onClick={() => handleDelete(doc.id)}
-                                  className="text-red-600 focus:text-red-600 dark:text-red-400"
-                                >
-                                  <X className="mr-2 h-4 w-4" />
-                                  Remove
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                                <Edit className="mr-2 h-4 w-4" />
+                                Edit Description
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => handleDelete(doc.id)}
+                                className="text-red-600 focus:text-red-600 dark:text-red-400"
+                              >
+                                <X className="mr-2 h-4 w-4" />
+                                Remove
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
             </div>
           </>
         ) : (
@@ -961,7 +961,7 @@ export function DocumentsContent({ className }: { className?: string }) {
                   </Dialog>
                 </div>
               </div>
-            </div>
+        </div>
 
             {/* Upload Zone */}
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">

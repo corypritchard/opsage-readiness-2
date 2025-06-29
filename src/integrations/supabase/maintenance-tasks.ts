@@ -19,6 +19,10 @@ type MaintenanceTaskColumn =
 type MaintenanceTaskColumnInsert =
   Database["public"]["Tables"]["maintenance_task_columns"]["Insert"];
 
+type FMECAColumn = Database["public"]["Tables"]["fmeca_columns"]["Row"];
+type FMECAColumnInsert =
+  Database["public"]["Tables"]["fmeca_columns"]["Insert"];
+
 // FMECA Projects
 export const createFMECAProject = async (
   project: Omit<FMECAProjectInsert, "user_id">
@@ -128,7 +132,8 @@ export const updateFMECAProject = async (
 // FMECA Data
 export const saveFMECAData = async (
   projectId: string,
-  fmecaRows: any[]
+  fmecaRows: any[],
+  columnOrder?: string[]
 ): Promise<void> => {
   console.log("saveFMECAData called with:", {
     projectId,
@@ -170,22 +175,36 @@ export const saveFMECAData = async (
     );
   }
 
-  // Delete existing data for this project
-  console.log("Attempting to delete existing FMECA data");
-  const { error: deleteError } = await supabase
+  // Delete existing data and columns for this project
+  console.log("Attempting to delete existing FMECA data and columns");
+
+  const { error: deleteDataError } = await supabase
     .from("fmeca_data")
     .delete()
     .eq("project_id", projectId)
     .eq("user_id", user.id);
 
-  if (deleteError) {
-    console.error("Delete error:", deleteError);
+  if (deleteDataError) {
+    console.error("Delete data error:", deleteDataError);
     throw new Error(
-      `Failed to clear existing FMECA data: ${deleteError.message}`
+      `Failed to clear existing FMECA data: ${deleteDataError.message}`
     );
   }
 
-  console.log("Existing data cleared successfully");
+  const { error: deleteColumnsError } = await supabase
+    .from("fmeca_columns")
+    .delete()
+    .eq("project_id", projectId)
+    .eq("user_id", user.id);
+
+  if (deleteColumnsError) {
+    console.error("Delete columns error:", deleteColumnsError);
+    throw new Error(
+      `Failed to clear existing FMECA columns: ${deleteColumnsError.message}`
+    );
+  }
+
+  console.log("Existing data and columns cleared successfully");
 
   // Insert new data
   const fmecaDataInserts: FMECADataInsert[] = fmecaRows.map((row, index) => ({
@@ -209,10 +228,40 @@ export const saveFMECAData = async (
     throw new Error(`Failed to save FMECA data: ${insertError.message}`);
   }
 
+  // Save column order if provided
+  if (columnOrder && columnOrder.length > 0) {
+    const columnInserts: FMECAColumnInsert[] = columnOrder.map(
+      (columnName, index) => ({
+        project_id: projectId,
+        user_id: user.id,
+        column_name: columnName,
+        column_order: index,
+      })
+    );
+
+    const { error: columnsInsertError } = await supabase
+      .from("fmeca_columns")
+      .insert(columnInserts);
+
+    if (columnsInsertError) {
+      console.error("Columns insert error:", columnsInsertError);
+      throw new Error(
+        `Failed to save FMECA columns: ${columnsInsertError.message}`
+      );
+    }
+
+    console.log("FMECA columns saved successfully");
+  }
+
   console.log("FMECA data saved successfully");
 };
 
-export const getFMECAData = async (projectId: string): Promise<any[]> => {
+export const getFMECAData = async (
+  projectId: string
+): Promise<{
+  data: any[];
+  columns: string[];
+}> => {
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -221,18 +270,43 @@ export const getFMECAData = async (projectId: string): Promise<any[]> => {
     throw new Error("User not authenticated");
   }
 
-  const { data, error } = await supabase
+  // Get the data
+  const { data: fmecaData, error: dataError } = await supabase
     .from("fmeca_data")
     .select("*")
     .eq("project_id", projectId)
     .eq("user_id", user.id)
     .order("row_index", { ascending: true });
 
-  if (error) {
-    throw new Error(`Failed to fetch FMECA data: ${error.message}`);
+  if (dataError) {
+    throw new Error(`Failed to fetch FMECA data: ${dataError.message}`);
   }
 
-  return data?.map((row) => row.row_data) || [];
+  // Get the column order
+  const { data: columnData, error: columnError } = await supabase
+    .from("fmeca_columns")
+    .select("*")
+    .eq("project_id", projectId)
+    .eq("user_id", user.id)
+    .order("column_order", { ascending: true });
+
+  if (columnError) {
+    throw new Error(`Failed to fetch FMECA columns: ${columnError.message}`);
+  }
+
+  const rowData = fmecaData?.map((row) => row.row_data) || [];
+  const orderedColumns = columnData?.map((col) => col.column_name) || [];
+
+  // If no column order is stored, fall back to extracting from first row
+  let columns = orderedColumns;
+  if (columns.length === 0 && rowData.length > 0) {
+    columns = Object.keys(rowData[0]);
+  }
+
+  return {
+    data: rowData,
+    columns: columns,
+  };
 };
 
 // Maintenance Tasks

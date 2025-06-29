@@ -7,6 +7,7 @@ import {
   Settings,
   Download,
   Upload,
+  Wrench,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -73,11 +74,12 @@ export function MaintenanceTasksContent({
 
   // Load maintenance tasks when project changes
   useEffect(() => {
+    // Always clear data first when project changes
+    setMaintenanceTasksData([]);
+    setTasksColumns([]);
+
     if (currentProject) {
       loadMaintenanceTasks();
-    } else {
-      setMaintenanceTasksData([]);
-      setTasksColumns([]);
     }
   }, [currentProject]);
 
@@ -92,6 +94,7 @@ export function MaintenanceTasksContent({
         setMaintenanceTasksData(tasks);
         setTasksColumns(columns);
       }
+      // Data is already cleared in useEffect, so empty projects stay empty
     } catch (error) {
       console.error("Failed to load maintenance tasks:", error);
       toast("Failed to load maintenance tasks", {
@@ -238,24 +241,28 @@ export function MaintenanceTasksContent({
 
   return (
     <div className="h-screen overflow-hidden bg-gray-50/50 dark:bg-gray-900/50">
-      <div className="h-full flex flex-col mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="h-full flex flex-col w-full px-4 py-8 sm:px-6 lg:px-8">
         {/* Header Section */}
         <div className="mb-8 flex-shrink-0">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-xl icon-primary">
-                <Settings className="h-6 w-6 text-white" />
+                <Wrench className="h-6 w-6 text-white" />
               </div>
               <div>
                 <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
                   Maintenance Tasks
                 </h1>
                 <p className="text-gray-600 dark:text-gray-400">
-                  {currentProject
-                    ? `Managing tasks for ${currentProject.name}`
-                    : "AI-powered maintenance task generation"}
+                  AI-generated maintenance tasks based on FMECA analysis
                 </p>
               </div>
+              {maintenanceTasksData.length > 0 && (
+                <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                  <Settings className="h-3 w-3" />
+                  {maintenanceTasksData.length} tasks
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-3">
@@ -281,26 +288,6 @@ export function MaintenanceTasksContent({
               )}
             </div>
           </div>
-        </div>
-
-        {/* Data Summary Badges */}
-        <div className="mb-6 flex items-center gap-4 flex-shrink-0">
-          <Badge className="btn-primary px-4 py-2 text-sm font-medium">
-            <Settings className="h-4 w-4 mr-2" />
-            {hasFMECAData
-              ? `${fmecaData.length} FMECA entries`
-              : "No FMECA data"}
-          </Badge>
-          {maintenanceTasksData.length > 0 && (
-            <Badge className="bg-green-50 text-green-700 ring-green-600/20 dark:bg-green-400/10 dark:text-green-400 dark:ring-green-400/20 px-4 py-2 text-sm font-medium ring-1 ring-inset">
-              {maintenanceTasksData.length} tasks generated
-            </Badge>
-          )}
-          {currentProject && (
-            <Badge className="bg-blue-50 text-blue-700 ring-blue-600/20 dark:bg-blue-400/10 dark:text-blue-400 dark:ring-blue-400/20 px-4 py-2 text-sm font-medium ring-1 ring-inset">
-              Project: {currentProject.name}
-            </Badge>
-          )}
         </div>
 
         {/* Main Content Area */}

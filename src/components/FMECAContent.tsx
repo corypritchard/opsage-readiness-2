@@ -1,5 +1,12 @@
 import { useState, useCallback, useEffect } from "react";
-import { Upload, Download, Save, FileSpreadsheet, Shield } from "lucide-react";
+import {
+  Upload,
+  Download,
+  Save,
+  FileSpreadsheet,
+  Shield,
+  Table,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TanStackFMECATable } from "./TanStackFMECATable";
@@ -39,19 +46,29 @@ export function FMECAContent({
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [loadedProjectId, setLoadedProjectId] = useState<string | null>(null);
   const { currentProject } = useProject();
 
-  // Load FMECA data from database when project changes
+  // Load FMECA data from database when project changes (but only if data is empty)
   useEffect(() => {
     if (currentProject) {
-      loadFMECADataFromDatabase();
+      // Only load if we don't already have data for this project
+      if (fmecaData.length === 0) {
+        loadFMECADataFromDatabase();
+      }
     } else {
-      // Clear data when no project is selected
+      // Clear data only when no project is selected
       setFmecaData([]);
       setColumns([]);
       setSelectedFile(null);
     }
-  }, [currentProject, setFmecaData, setColumns, setSelectedFile]);
+  }, [
+    currentProject,
+    fmecaData.length,
+    setFmecaData,
+    setColumns,
+    setSelectedFile,
+  ]);
 
   const loadFMECADataFromDatabase = async () => {
     if (!currentProject) return;
@@ -63,29 +80,26 @@ export function FMECAContent({
         currentProject.id
       );
 
-      const data = await getFMECAData(currentProject.id);
+      const result = await getFMECAData(currentProject.id);
 
-      if (data.length > 0) {
-        console.log("Loaded FMECA data from database:", data.length, "rows");
-        setFmecaData(data);
-
-        // Extract columns from the first row
-        const extractedColumns = Object.keys(data[0] || {});
-        setColumns(extractedColumns);
+      if (result.data.length > 0) {
+        console.log(
+          "Loaded FMECA data from database:",
+          result.data.length,
+          "rows"
+        );
+        setFmecaData(result.data);
+        setColumns(result.columns);
 
         toast("FMECA data loaded from database!", {
-          description: `Loaded ${data.length} entries for project ${currentProject.name}`,
+          description: `Loaded ${result.data.length} entries for project ${currentProject.name}`,
         });
       } else {
         console.log(
           "No FMECA data found in database for project:",
           currentProject.id
         );
-        // Don't clear data if there's already data loaded (user might have just uploaded)
-        if (fmecaData.length === 0) {
-          setFmecaData([]);
-          setColumns([]);
-        }
+        // Data is already cleared in useEffect, so no need to clear again
       }
     } catch (error) {
       console.error("Failed to load FMECA data from database:", error);
@@ -114,7 +128,7 @@ export function FMECAContent({
       );
       console.log("Data sample being saved:", data[0]);
 
-      await saveFMECAData(currentProject.id, data);
+      await saveFMECAData(currentProject.id, data, columns);
 
       console.log("Successfully saved FMECA data to database");
       toast("FMECA data saved to database!", {
@@ -259,7 +273,21 @@ export function FMECAContent({
             currentProject.id
           );
           console.log("Data to save:", parsedData.length, "rows");
-          await saveFMECADataToDatabase(parsedData);
+          try {
+            // Pass the columns directly to ensure they are saved in the correct order
+            await saveFMECAData(currentProject.id, parsedData, excelColumns);
+            console.log("Successfully saved FMECA data to database");
+            toast("FMECA data saved to database!", {
+              description: `Saved ${parsedData.length} entries for project ${currentProject.name}`,
+            });
+          } catch (saveError) {
+            console.error("Failed to save FMECA data to database:", saveError);
+            toast("Failed to save FMECA data", {
+              description: `Error: ${
+                saveError instanceof Error ? saveError.message : "Unknown error"
+              }`,
+            });
+          }
         } else {
           console.log("No current project selected, skipping auto-save");
         }
@@ -364,7 +392,7 @@ export function FMECAContent({
 
   return (
     <div className="h-screen overflow-hidden bg-gray-50/50 dark:bg-gray-900/50">
-      <div className="h-full flex flex-col mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="h-full flex flex-col w-full px-4 py-8 sm:px-6 lg:px-8">
         {fmecaData.length > 0 ? (
           <>
             {/* Header Section */}
@@ -372,7 +400,7 @@ export function FMECAContent({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="flex h-12 w-12 items-center justify-center rounded-xl icon-primary">
-                    <Shield className="h-6 w-6 text-white" />
+                    <Table className="h-6 w-6 text-white" />
                   </div>
                   <div>
                     <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
@@ -445,7 +473,7 @@ export function FMECAContent({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="flex h-12 w-12 items-center justify-center rounded-xl icon-primary">
-                    <Shield className="h-6 w-6 text-white" />
+                    <Table className="h-6 w-6 text-white" />
                   </div>
                   <div>
                     <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">

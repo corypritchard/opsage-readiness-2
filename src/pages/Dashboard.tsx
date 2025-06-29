@@ -140,46 +140,53 @@ const Dashboard = () => {
         <DashboardHeader />
         <WelcomeModal />
         <div className="fixed top-16 left-0 right-0 bottom-0 w-full h-[calc(100vh-4rem)]">
-          {/* Layout: Sidebar (overlapping) | Main Content | Chat */}
-          <div className="relative flex h-full w-full">
-            {/* Sidebar (overlaps main content) */}
-            <div className="relative z-20" style={{ width: SIDEBAR_COLLAPSED }}>
-              <AppSidebar selected={selectedNav} onSelect={setSelectedNav} />
-            </div>
-            {/* Main content fills the space between sidebar and AI panel */}
-            <div
-              className="relative z-10 flex-1 min-w-0 h-full overflow-x-auto"
-              style={{ marginRight: chatPanelWidth }}
-            >
-              <MainContent
-                className="h-full flex flex-col"
-                selectedNav={selectedNav}
-                selectedFile={selectedFile}
-                setSelectedFile={setSelectedFile}
-                fmecaData={getPreviewData()}
-                setFmecaData={setFmecaData}
-                columns={columns}
-                setColumns={setColumns}
-                stagedChanges={stagedChanges}
-              />
-            </div>
-            {/* AI Chat Panel on the right - Fixed position */}
-            <div className="fixed right-0 top-16 bottom-0 z-30">
-              <AIChatPanel
-                className="h-full"
-                fmecaData={fmecaData}
-                columns={columns}
-                onDataUpdate={handleDataUpdate}
-                onStageChanges={handleStageChanges}
-                onAcceptChanges={handleAcceptChanges}
-                onRevertChanges={handleRevertChanges}
-                hasStagedChanges={!!stagedChanges}
-                onResize={handleChatPanelResize}
-                minWidth={320}
-                maxWidth={600}
-                initialWidth={380}
-              />
-            </div>
+          {/* Layout: Fixed positioning for consistent spacing regardless of zoom */}
+
+          {/* Sidebar - Fixed position on the left */}
+          <div
+            className="fixed left-0 top-16 bottom-0 z-20"
+            style={{ width: SIDEBAR_COLLAPSED }}
+          >
+            <AppSidebar selected={selectedNav} onSelect={setSelectedNav} />
+          </div>
+
+          {/* Main content - Fixed position with calculated width */}
+          <div
+            className="fixed top-16 bottom-0 z-10 overflow-x-auto bg-background"
+            style={{
+              left: SIDEBAR_COLLAPSED,
+              width: `calc(100vw - ${SIDEBAR_COLLAPSED}px - ${chatPanelWidth}px)`,
+            }}
+          >
+            <MainContent
+              className="h-full flex flex-col min-w-full"
+              selectedNav={selectedNav}
+              selectedFile={selectedFile}
+              setSelectedFile={setSelectedFile}
+              fmecaData={getPreviewData()}
+              setFmecaData={setFmecaData}
+              columns={columns}
+              setColumns={setColumns}
+              stagedChanges={stagedChanges}
+            />
+          </div>
+
+          {/* AI Chat Panel - Fixed position on the right */}
+          <div className="fixed right-0 top-16 bottom-0 z-30">
+            <AIChatPanel
+              className="h-full"
+              fmecaData={fmecaData}
+              columns={columns}
+              onDataUpdate={handleDataUpdate}
+              onStageChanges={handleStageChanges}
+              onAcceptChanges={handleAcceptChanges}
+              onRevertChanges={handleRevertChanges}
+              hasStagedChanges={!!stagedChanges}
+              onResize={handleChatPanelResize}
+              minWidth={320}
+              maxWidth={600}
+              initialWidth={380}
+            />
           </div>
         </div>
       </div>

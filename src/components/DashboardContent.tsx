@@ -47,6 +47,15 @@ export function DashboardContent() {
     if (currentProject) {
       loadProjectStats();
       loadRecentActions();
+    } else {
+      // Clear everything when no project is selected
+      setStats({
+        equipmentCount: 0,
+        fmecaRowsCount: 0,
+        maintenanceTasksCount: 0,
+        documentsCount: 0,
+      });
+      setRecentActions([]);
     }
   }, [currentProject]);
 
@@ -88,35 +97,19 @@ export function DashboardContent() {
     }
   };
 
-  const loadRecentActions = () => {
-    // For now, mock recent actions - in a real implementation, this would come from an activity log table
-    const mockActions: RecentAction[] = [
-      {
-        id: "1",
-        time: "2 hours ago",
-        action: "FMECA Data Uploaded",
-        user: "Current User",
-        details: "Sample_FMECA_Data.xlsx (6 rows)",
-        status: "complete",
-      },
-      {
-        id: "2",
-        time: "1 hour ago",
-        action: "Maintenance Tasks Generated",
-        user: "AI Assistant",
-        details: "Generated from FMECA analysis",
-        status: "complete",
-      },
-      {
-        id: "3",
-        time: "30 min ago",
-        action: "Data Saved to Database",
-        user: "System",
-        details: "Project data synchronized",
-        status: "complete",
-      },
-    ];
-    setRecentActions(mockActions);
+  const loadRecentActions = async () => {
+    if (!currentProject) {
+      setRecentActions([]);
+      return;
+    }
+
+    // For now, show empty recent actions for new projects
+    // In a real implementation, this would query an activity log table by project ID
+    setRecentActions([]);
+
+    // TODO: Implement real activity log loading
+    // const actions = await getProjectActivityLog(currentProject.id);
+    // setRecentActions(actions);
   };
 
   if (!currentProject) {
@@ -139,7 +132,7 @@ export function DashboardContent() {
 
   return (
     <div className="h-full overflow-auto bg-background">
-      <div className="max-w-7xl mx-auto p-6 space-y-8">
+      <div className="w-full p-6 space-y-8">
         {/* Project Header */}
         <div className="space-y-2">
           <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">

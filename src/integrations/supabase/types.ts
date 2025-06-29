@@ -54,6 +54,48 @@ export type Database = {
           }
         ];
       };
+      fmeca_columns: {
+        Row: {
+          column_name: string;
+          column_order: number;
+          created_at: string;
+          id: string;
+          project_id: string;
+          user_id: string;
+        };
+        Insert: {
+          column_name: string;
+          column_order: number;
+          created_at?: string;
+          id?: string;
+          project_id: string;
+          user_id: string;
+        };
+        Update: {
+          column_name?: string;
+          column_order?: number;
+          created_at?: string;
+          id?: string;
+          project_id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "fmeca_columns_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "fmeca_projects";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "fmeca_columns_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
       fmeca_projects: {
         Row: {
           created_at: string;

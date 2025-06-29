@@ -15,6 +15,11 @@ import {
   Save,
   RefreshCw,
   FolderOpen,
+  Plus,
+  Edit,
+  Check,
+  X,
+  Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,7 +62,14 @@ import {
 
 export default function SettingsPage() {
   const { user } = useAuth();
-  const { currentProject, projects, loadProjects } = useProject();
+  const {
+    currentProject,
+    projects,
+    loadProjects,
+    createProject,
+    deleteProject,
+    setCurrentProject,
+  } = useProject();
   const { theme, setTheme } = useTheme();
 
   // Settings state
@@ -93,6 +105,17 @@ export default function SettingsPage() {
     name: currentProject?.name || "",
     description: currentProject?.description || "",
   });
+
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", description: "" });
+  const [showAddProject, setShowAddProject] = useState(false);
+  const [newProjectForm, setNewProjectForm] = useState({
+    name: "",
+    description: "",
+  });
+  const [isCreating, setIsCreating] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
   const handleSaveSettings = () => {
     toast("Settings saved successfully!", {
@@ -151,9 +174,102 @@ export default function SettingsPage() {
     }
   }, [currentProject]);
 
+  const handleCreateProject = async () => {
+    if (!newProjectForm.name.trim()) {
+      toast("Project name required", {
+        description: "Please enter a project name.",
+      });
+      return;
+    }
+
+    try {
+      setIsCreating(true);
+      await createProject({
+        name: newProjectForm.name.trim(),
+        description: newProjectForm.description.trim(),
+      });
+
+      setNewProjectForm({ name: "", description: "" });
+      setShowAddProject(false);
+
+      toast("Project created successfully!", {
+        description: "Your new project has been created and selected.",
+      });
+    } catch (error) {
+      console.error("Failed to create project:", error);
+      toast("Failed to create project", {
+        description: "There was an error creating your project.",
+      });
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleStartEdit = (project: any) => {
+    setEditingProjectId(project.id);
+    setEditForm({
+      name: project.name,
+      description: project.description || "",
+    });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editForm.name.trim()) {
+      toast("Project name required", {
+        description: "Please enter a project name.",
+      });
+      return;
+    }
+
+    try {
+      setIsUpdating(true);
+      await updateFMECAProject(editingProjectId!, {
+        name: editForm.name.trim(),
+        description: editForm.description.trim(),
+      });
+
+      await loadProjects();
+      setEditingProjectId(null);
+
+      toast("Project updated successfully!", {
+        description: "Your project details have been saved.",
+      });
+    } catch (error) {
+      console.error("Failed to update project:", error);
+      toast("Failed to update project", {
+        description: "There was an error saving your changes.",
+      });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingProjectId(null);
+    setEditForm({ name: "", description: "" });
+  };
+
+  const handleDeleteProject = async (projectId: string) => {
+    try {
+      setIsDeleting(projectId);
+      await deleteProject(projectId);
+
+      toast("Project deleted successfully!", {
+        description: "The project and all its data have been removed.",
+      });
+    } catch (error) {
+      console.error("Failed to delete project:", error);
+      toast("Failed to delete project", {
+        description: "There was an error deleting the project.",
+      });
+    } finally {
+      setIsDeleting(null);
+    }
+  };
+
   return (
     <div className="h-screen overflow-hidden bg-gray-50/50 dark:bg-gray-900/50">
-      <div className="h-full flex flex-col mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="h-full flex flex-col w-full px-4 py-8 sm:px-6 lg:px-8">
         {/* Header Section */}
         <div className="mb-8 flex-shrink-0">
           <div className="flex items-center justify-between">
@@ -338,120 +454,264 @@ export default function SettingsPage() {
               <TabsContent value="project" className="space-y-6">
                 <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <FolderOpen className="h-5 w-5" />
-                      Project Information
-                    </CardTitle>
-                    <CardDescription>
-                      Update your project title and description
-                    </CardDescription>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="flex items-center gap-2">
+                          <FolderOpen className="h-5 w-5" />
+                          Project Management
+                        </CardTitle>
+                        <CardDescription>
+                          Manage your projects, edit details, or create new ones
+                        </CardDescription>
+                      </div>
+                      <Button
+                        onClick={() => setShowAddProject(true)}
+                        className="btn-primary"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Project
+                      </Button>
+                    </div>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    {currentProject ? (
-                      <>
-                        <div>
-                          <Label htmlFor="projectName">Project Title</Label>
-                          <Input
-                            id="projectName"
-                            value={projectSettings.name}
-                            onChange={(e) =>
-                              setProjectSettings((prev) => ({
-                                ...prev,
-                                name: e.target.value,
-                              }))
-                            }
-                            placeholder="Enter project title"
-                          />
+                  <CardContent>
+                    {/* Add Project Form */}
+                    {showAddProject && (
+                      <div className="mb-6 p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800/50">
+                        <h4 className="font-medium mb-4">Create New Project</h4>
+                        <div className="space-y-4">
+                          <div>
+                            <Label htmlFor="newProjectName">Project Name</Label>
+                            <Input
+                              id="newProjectName"
+                              value={newProjectForm.name}
+                              onChange={(e) =>
+                                setNewProjectForm((prev) => ({
+                                  ...prev,
+                                  name: e.target.value,
+                                }))
+                              }
+                              placeholder="Enter project name"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="newProjectDescription">
+                              Description (Optional)
+                            </Label>
+                            <Textarea
+                              id="newProjectDescription"
+                              value={newProjectForm.description}
+                              onChange={(e) =>
+                                setNewProjectForm((prev) => ({
+                                  ...prev,
+                                  description: e.target.value,
+                                }))
+                              }
+                              placeholder="Describe your project"
+                              rows={3}
+                            />
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              onClick={handleCreateProject}
+                              disabled={
+                                isCreating || !newProjectForm.name.trim()
+                              }
+                              className="btn-primary"
+                            >
+                              {isCreating ? "Creating..." : "Create Project"}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                setShowAddProject(false);
+                                setNewProjectForm({
+                                  name: "",
+                                  description: "",
+                                });
+                              }}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
                         </div>
-                        <div>
-                          <Label htmlFor="projectDescription">
-                            Project Description
-                          </Label>
-                          <Textarea
-                            id="projectDescription"
-                            value={projectSettings.description}
-                            onChange={(e) =>
-                              setProjectSettings((prev) => ({
-                                ...prev,
-                                description: e.target.value,
-                              }))
-                            }
-                            placeholder="Describe your project, its scope, and objectives"
-                            rows={4}
-                          />
-                        </div>
-                        <div className="flex justify-end pt-4">
-                          <Button
-                            onClick={handleSaveProject}
-                            className="btn-primary"
-                          >
-                            <Save className="h-4 w-4 mr-2" />
-                            Save Project Details
-                          </Button>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="text-center py-8">
-                        <FolderOpen className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                          No Project Selected
-                        </h3>
-                        <p className="text-gray-600 dark:text-gray-400">
-                          Please create or select a project to edit its details.
-                        </p>
                       </div>
                     )}
+
+                    {/* Projects List */}
+                    <div className="space-y-4">
+                      {projects.length === 0 ? (
+                        <div className="text-center py-8">
+                          <FolderOpen className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                            No Projects Yet
+                          </h3>
+                          <p className="text-gray-600 dark:text-gray-400 mb-4">
+                            Create your first project to get started with FMECA
+                            analysis.
+                          </p>
+                          <Button
+                            onClick={() => setShowAddProject(true)}
+                            className="btn-primary"
+                          >
+                            <Plus className="h-4 w-4 mr-2" />
+                            Create First Project
+                          </Button>
+                        </div>
+                      ) : (
+                        projects.map((project) => (
+                          <div
+                            key={project.id}
+                            className={`p-4 border rounded-lg transition-colors ${
+                              currentProject?.id === project.id
+                                ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                                : "border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                            }`}
+                          >
+                            {editingProjectId === project.id ? (
+                              // Edit Mode
+                              <div className="space-y-4">
+                                <div>
+                                  <Label>Project Name</Label>
+                                  <Input
+                                    value={editForm.name}
+                                    onChange={(e) =>
+                                      setEditForm((prev) => ({
+                                        ...prev,
+                                        name: e.target.value,
+                                      }))
+                                    }
+                                    placeholder="Enter project name"
+                                  />
+                                </div>
+                                <div>
+                                  <Label>Description</Label>
+                                  <Textarea
+                                    value={editForm.description}
+                                    onChange={(e) =>
+                                      setEditForm((prev) => ({
+                                        ...prev,
+                                        description: e.target.value,
+                                      }))
+                                    }
+                                    placeholder="Project description"
+                                    rows={3}
+                                  />
+                                </div>
+                                <div className="flex gap-2">
+                                  <Button
+                                    onClick={handleSaveEdit}
+                                    disabled={
+                                      isUpdating || !editForm.name.trim()
+                                    }
+                                    size="sm"
+                                    className="btn-primary"
+                                  >
+                                    <Check className="h-4 w-4 mr-1" />
+                                    {isUpdating ? "Saving..." : "Save"}
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    onClick={handleCancelEdit}
+                                    size="sm"
+                                  >
+                                    <X className="h-4 w-4 mr-1" />
+                                    Cancel
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              // View Mode
+                              <div className="flex items-center justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <h4 className="font-medium text-gray-900 dark:text-white">
+                                      {project.name}
+                                    </h4>
+                                    {currentProject?.id === project.id && (
+                                      <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                                        <Star className="h-3 w-3 mr-1" />
+                                        Active
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                    {project.description || "No description"}
+                                  </p>
+                                  <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
+                                    Created:{" "}
+                                    {new Date(
+                                      project.created_at
+                                    ).toLocaleDateString()}
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-2 ml-4">
+                                  {currentProject?.id !== project.id && (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => setCurrentProject(project)}
+                                    >
+                                      Select
+                                    </Button>
+                                  )}
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleStartEdit(project)}
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>
+                                          Delete Project
+                                        </AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                          Are you sure you want to delete "
+                                          {project.name}"? This will permanently
+                                          remove the project and all associated
+                                          data including FMECA analysis and
+                                          maintenance tasks. This action cannot
+                                          be undone.
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>
+                                          Cancel
+                                        </AlertDialogCancel>
+                                        <AlertDialogAction
+                                          onClick={() =>
+                                            handleDeleteProject(project.id)
+                                          }
+                                          disabled={isDeleting === project.id}
+                                          className="bg-red-600 hover:bg-red-700"
+                                        >
+                                          {isDeleting === project.id
+                                            ? "Deleting..."
+                                            : "Delete Project"}
+                                        </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
-
-                {currentProject && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Project Statistics</CardTitle>
-                      <CardDescription>
-                        Overview of your project activity and progress
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                          <div className="text-2xl font-bold text-blue-600">
-                            {new Date(
-                              currentProject.created_at
-                            ).toLocaleDateString()}
-                          </div>
-                          <div className="text-sm text-gray-600 dark:text-gray-400">
-                            Created Date
-                          </div>
-                        </div>
-                        <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                          <div className="text-2xl font-bold text-green-600">
-                            Active
-                          </div>
-                          <div className="text-sm text-gray-600 dark:text-gray-400">
-                            Project Status
-                          </div>
-                        </div>
-                        <div className="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                          <div className="text-2xl font-bold text-purple-600">
-                            0
-                          </div>
-                          <div className="text-sm text-gray-600 dark:text-gray-400">
-                            FMECA Files
-                          </div>
-                        </div>
-                        <div className="text-center p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
-                          <div className="text-2xl font-bold text-orange-600">
-                            0
-                          </div>
-                          <div className="text-sm text-gray-600 dark:text-gray-400">
-                            Tasks Generated
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
               </TabsContent>
 
               {/* Notification Settings */}
