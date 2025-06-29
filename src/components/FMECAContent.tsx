@@ -370,7 +370,7 @@ export function FMECAContent({
             {/* Header Section */}
             <div className="mb-8 flex-shrink-0">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-4">
                   <div className="flex h-12 w-12 items-center justify-center rounded-xl icon-primary">
                     <Shield className="h-6 w-6 text-white" />
                   </div>
@@ -384,6 +384,15 @@ export function FMECAContent({
                         : "Sample FMECA data analysis"}
                     </p>
                   </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                    <FileSpreadsheet className="h-3 w-3" />
+                    {fmecaData.length} rows • {columns.length} columns
+                  </div>
+                  {stagedChanges && stagedChanges.totalChanges > 0 && (
+                    <Badge className="bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-400/10 dark:text-amber-400 dark:ring-amber-400/20 px-4 py-2 text-sm font-medium ring-1 ring-inset">
+                      {stagedChanges.totalChanges} unsaved changes
+                    </Badge>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -414,19 +423,6 @@ export function FMECAContent({
                   </Button>
                 </div>
               </div>
-            </div>
-
-            {/* Data Summary Badge */}
-            <div className="mb-6 flex items-center gap-4 flex-shrink-0">
-              <Badge className="btn-primary px-4 py-2 text-sm font-medium">
-                <FileSpreadsheet className="h-4 w-4 mr-2" />
-                {fmecaData.length} rows • {columns.length} columns loaded
-              </Badge>
-              {stagedChanges && stagedChanges.totalChanges > 0 && (
-                <Badge className="bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-400/10 dark:text-amber-400 dark:ring-amber-400/20 px-4 py-2 text-sm font-medium ring-1 ring-inset">
-                  {stagedChanges.totalChanges} unsaved changes
-                </Badge>
-              )}
             </div>
 
             {/* FMECA Table - Takes remaining height */}

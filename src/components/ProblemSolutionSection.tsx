@@ -46,9 +46,9 @@ const ProblemSolutionSection = () => {
           />
         </svg>
       </div>
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl mx-auto relative z-10">
         <div className="grid md:grid-cols-2 gap-12 items-center">
-          <div className="bg-destructive/10 rounded-lg p-8 border-l-4 border-destructive">
+          <div className="bg-destructive/10 rounded-lg p-8 border-l-4 border-destructive border border-border shadow-sm">
             <h3 className="text-xl font-semibold text-destructive mb-4">
               Before Opsage
             </h3>
@@ -80,7 +80,7 @@ const ProblemSolutionSection = () => {
             </ul>
           </div>
 
-          <div className="bg-green-50 rounded-lg p-8 border-l-4 border-green-500">
+          <div className="bg-green-50 rounded-lg p-8 border-l-4 border-green-500 border border-border shadow-sm">
             <h3 className="text-xl font-semibold text-green-700 mb-4">
               With Opsage
             </h3>

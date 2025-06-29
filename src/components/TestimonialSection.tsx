@@ -46,7 +46,7 @@ const TestimonialSection = () => {
           />
         </svg>
       </div>
-      <div className="max-w-4xl mx-auto text-center">
+      <div className="max-w-4xl mx-auto text-center relative z-10">
         <div className="bg-card rounded-lg p-8 border border-border shadow-sm">
           <blockquote className="text-xl md:text-2xl text-foreground italic mb-6">
             "We cut our operational readiness timeline by 70% using Opsage. What

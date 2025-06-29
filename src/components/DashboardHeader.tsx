@@ -114,8 +114,51 @@ const DashboardHeader = () => {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 w-full bg-gradient-to-r from-white via-gray-50 to-white dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm backdrop-blur-sm">
-      <div className="flex items-center justify-between px-6 py-3">
+    <header className="fixed top-0 left-0 right-0 z-50 w-full bg-gradient-to-r from-white via-gray-50 to-white dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm backdrop-blur-sm overflow-hidden">
+      {/* Background Arcs */}
+      <div className="absolute inset-0 pointer-events-none z-0">
+        <svg
+          className="absolute -top-16 left-1/4 w-48 h-48 text-foreground/5"
+          style={{ transform: "rotate(45deg)" }}
+          viewBox="0 0 200 200"
+          fill="none"
+        >
+          <path
+            d="M180,100a80,80 0 1,1 -160,0"
+            stroke="currentColor"
+            strokeWidth="10"
+            strokeLinecap="butt"
+          />
+        </svg>
+        <svg
+          className="absolute bottom-0 -right-10 w-40 h-40 text-foreground/5"
+          style={{ transform: "rotate(-30deg)" }}
+          viewBox="0 0 200 200"
+          fill="none"
+        >
+          <path
+            d="M180,100a80,80 0 1,1 -160,0"
+            stroke="currentColor"
+            strokeWidth="12"
+            strokeLinecap="butt"
+          />
+        </svg>
+        <svg
+          className="absolute -bottom-8 left-10 w-28 h-28 text-foreground/5"
+          style={{ transform: "rotate(120deg)" }}
+          viewBox="0 0 200 200"
+          fill="none"
+        >
+          <path
+            d="M180,100a80,80 0 1,1 -160,0"
+            stroke="currentColor"
+            strokeWidth="8"
+            strokeLinecap="butt"
+          />
+        </svg>
+      </div>
+
+      <div className="relative flex items-center justify-between px-6 py-3 z-10">
         {/* Left side - Logo and Project Info */}
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-3">
@@ -253,10 +296,10 @@ const DashboardHeader = () => {
           </div>
 
           <Button
-            variant="outline"
-            size="sm"
+            variant="ghost"
+            size="icon"
             onClick={handleSignOut}
-            className="h-8 w-8 p-0"
+            className="h-9 w-9"
           >
             <LogOut className="h-4 w-4" />
           </Button>

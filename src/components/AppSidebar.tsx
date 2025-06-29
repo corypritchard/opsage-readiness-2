@@ -67,16 +67,59 @@ export function AppSidebar({
   return (
     <nav
       className={cn(
-        "group flex flex-col h-full bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 transition-all duration-200 ease-out z-40 shadow-sm",
+        "group relative flex flex-col h-full bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 transition-all duration-200 ease-out z-50 shadow-sm overflow-hidden",
         expanded ? "w-64" : "w-16"
       )}
       onMouseEnter={() => setExpanded(true)}
       onMouseLeave={() => setExpanded(false)}
     >
+      {/* Background Arcs */}
+      <div className="absolute inset-0 pointer-events-none z-0">
+        <svg
+          className="absolute -top-8 -left-12 w-32 h-32 text-foreground/5"
+          style={{ transform: "rotate(75deg)" }}
+          viewBox="0 0 200 200"
+          fill="none"
+        >
+          <path
+            d="M180,100a80,80 0 1,1 -160,0"
+            stroke="currentColor"
+            strokeWidth="10"
+            strokeLinecap="butt"
+          />
+        </svg>
+        <svg
+          className="absolute bottom-16 -left-8 w-40 h-40 text-foreground/5"
+          style={{ transform: "rotate(-45deg)" }}
+          viewBox="0 0 200 200"
+          fill="none"
+        >
+          <path
+            d="M180,100a80,80 0 1,1 -160,0"
+            stroke="currentColor"
+            strokeWidth="12"
+            strokeLinecap="butt"
+          />
+        </svg>
+        <svg
+          className="absolute top-1/3 left-2 w-28 h-28 text-foreground/5"
+          style={{ transform: "rotate(150deg)" }}
+          viewBox="0 0 200 200"
+          fill="none"
+        >
+          <path
+            d="M180,100a80,80 0 1,1 -160,0"
+            stroke="currentColor"
+            strokeWidth="8"
+            strokeLinecap="butt"
+          />
+        </svg>
+      </div>
+
       {/* Navigation Items */}
       <div
         className={cn(
-          "flex flex-col gap-2 flex-1 justify-center items-center",
+          "relative flex flex-col gap-2 flex-1 justify-center items-center z-10",
           expanded ? "p-3" : "py-3 px-2"
         )}
       >

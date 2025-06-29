@@ -39,49 +39,11 @@ interface Asset {
   description: string;
   creationDate: string;
   tags: string[];
-  status: "Active" | "Inactive" | "Maintenance" | "Critical";
-  priority: "High" | "Medium" | "Low";
+  floc: string; // Functional Location
 }
 
 const Assets = () => {
-  const [assets, setAssets] = useState<Asset[]>([
-    {
-      id: "1",
-      name: "Conveyor Belt System",
-      description: "Main production line conveyor belt for material transport",
-      creationDate: "2024-01-15",
-      tags: ["Production", "Critical", "Mechanical"],
-      status: "Active",
-      priority: "High",
-    },
-    {
-      id: "2",
-      name: "Pump Station A",
-      description: "Primary water circulation pump for cooling system",
-      creationDate: "2024-01-16",
-      tags: ["Cooling", "High Priority", "Hydraulic"],
-      status: "Maintenance",
-      priority: "High",
-    },
-    {
-      id: "3",
-      name: "Compressor Unit B",
-      description: "Secondary air compression system for pneumatic tools",
-      creationDate: "2024-01-17",
-      tags: ["Pneumatic", "Secondary", "Tools"],
-      status: "Inactive",
-      priority: "Medium",
-    },
-    {
-      id: "4",
-      name: "Generator Alpha",
-      description: "Primary backup power generation unit",
-      creationDate: "2024-01-18",
-      tags: ["Power", "Backup", "Emergency"],
-      status: "Critical",
-      priority: "High",
-    },
-  ]);
+  const [assets, setAssets] = useState<Asset[]>([]);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
@@ -91,17 +53,16 @@ const Assets = () => {
     name: "",
     description: "",
     tags: "",
-    status: "Active" as Asset["status"],
-    priority: "Medium" as Asset["priority"],
+    floc: "",
   });
 
   // Filter assets based on search and status
   const filteredAssets = assets.filter((asset) => {
     const matchesSearch =
       asset.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      asset.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus =
-      selectedStatus === "all" || asset.status.toLowerCase() === selectedStatus;
+      asset.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      asset.floc.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = selectedStatus === "all"; // Remove status filtering since we don't have status anymore
     return matchesSearch && matchesStatus;
   });
 
@@ -111,8 +72,7 @@ const Assets = () => {
       name: "",
       description: "",
       tags: "",
-      status: "Active",
-      priority: "Medium",
+      floc: "",
     });
     setIsDialogOpen(true);
   };
@@ -123,8 +83,7 @@ const Assets = () => {
       name: asset.name,
       description: asset.description,
       tags: asset.tags.join(", "),
-      status: asset.status,
-      priority: asset.priority,
+      floc: asset.floc,
     });
     setIsDialogOpen(true);
   };
@@ -144,8 +103,7 @@ const Assets = () => {
                 name: formData.name,
                 description: formData.description,
                 tags: tagsArray,
-                status: formData.status,
-                priority: formData.priority,
+                floc: formData.floc,
               }
             : asset
         )
@@ -157,8 +115,7 @@ const Assets = () => {
         description: formData.description,
         creationDate: new Date().toISOString().split("T")[0],
         tags: tagsArray,
-        status: formData.status,
-        priority: formData.priority,
+        floc: formData.floc,
       };
       setAssets([...assets, newAsset]);
     }
@@ -170,38 +127,9 @@ const Assets = () => {
     setAssets(assets.filter((asset) => asset.id !== assetId));
   };
 
-  const getStatusStyles = (status: Asset["status"]) => {
-    switch (status) {
-      case "Active":
-        return "bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-400/10 dark:text-emerald-400 dark:ring-emerald-400/20";
-      case "Inactive":
-        return "bg-gray-50 text-gray-700 ring-gray-600/20 dark:bg-gray-400/10 dark:text-gray-400 dark:ring-gray-400/20";
-      case "Maintenance":
-        return "bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-400/10 dark:text-amber-400 dark:ring-amber-400/20";
-      case "Critical":
-        return "bg-red-50 text-red-700 ring-red-600/20 dark:bg-red-400/10 dark:text-red-400 dark:ring-red-400/20";
-      default:
-        return "bg-gray-50 text-gray-700 ring-gray-600/20 dark:bg-gray-400/10 dark:text-gray-400 dark:ring-gray-400/20";
-    }
-  };
-
-  const getPriorityStyles = (priority: Asset["priority"]) => {
-    switch (priority) {
-      case "High":
-        return "bg-red-50 text-red-700 ring-red-600/20 dark:bg-red-400/10 dark:text-red-400 dark:ring-red-400/20";
-      case "Medium":
-        return "bg-yellow-50 text-yellow-700 ring-yellow-600/20 dark:bg-yellow-400/10 dark:text-yellow-400 dark:ring-yellow-400/20";
-      case "Low":
-        return "bg-green-50 text-green-700 ring-green-600/20 dark:bg-green-400/10 dark:text-green-400 dark:ring-green-400/20";
-      default:
-        return "bg-gray-50 text-gray-700 ring-gray-600/20 dark:bg-gray-400/10 dark:text-gray-400 dark:ring-gray-400/20";
-    }
-  };
-
   const getStatusCount = (status: string) => {
     if (status === "all") return assets.length;
-    return assets.filter((asset) => asset.status.toLowerCase() === status)
-      .length;
+    return 0; // No status filtering anymore
   };
 
   return (
@@ -280,49 +208,22 @@ const Assets = () => {
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="status" className="text-sm font-medium">
-                        Status
-                      </Label>
-                      <select
-                        id="status"
-                        value={formData.status}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            status: e.target.value as Asset["status"],
-                          })
-                        }
-                        className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                      >
-                        <option value="Active">Active</option>
-                        <option value="Inactive">Inactive</option>
-                        <option value="Maintenance">Maintenance</option>
-                        <option value="Critical">Critical</option>
-                      </select>
-                    </div>
-
-                    <div className="grid gap-2">
-                      <Label htmlFor="priority" className="text-sm font-medium">
-                        Priority
-                      </Label>
-                      <select
-                        id="priority"
-                        value={formData.priority}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            priority: e.target.value as Asset["priority"],
-                          })
-                        }
-                        className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                      >
-                        <option value="High">High</option>
-                        <option value="Medium">Medium</option>
-                        <option value="Low">Low</option>
-                      </select>
-                    </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="floc" className="text-sm font-medium">
+                      FLOC (Functional Location)
+                    </Label>
+                    <Input
+                      id="floc"
+                      value={formData.floc}
+                      onChange={(e) =>
+                        setFormData({ ...formData, floc: e.target.value })
+                      }
+                      placeholder="e.g., PLANT-01/LINE-A/CONV-001"
+                      className="h-11 font-mono"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Hierarchical functional location identifier
+                    </p>
                   </div>
 
                   <div className="grid gap-2">
@@ -376,21 +277,6 @@ const Assets = () => {
                 className="pl-10 h-11 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
               />
             </div>
-
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-gray-400" />
-              <select
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-                className="h-11 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">All Status</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-                <option value="maintenance">Maintenance</option>
-                <option value="critical">Critical</option>
-              </select>
-            </div>
           </div>
         </div>
 
@@ -402,16 +288,14 @@ const Assets = () => {
                 <Package className="h-12 w-12 text-gray-400" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                {searchTerm || selectedStatus !== "all"
-                  ? "No assets found"
-                  : "No assets yet"}
+                {searchTerm ? "No assets found" : "No assets yet"}
               </h3>
               <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-sm mx-auto">
-                {searchTerm || selectedStatus !== "all"
-                  ? "Try adjusting your search terms or filters"
+                {searchTerm
+                  ? "Try adjusting your search terms"
                   : "Get started by creating your first asset"}
               </p>
-              {!searchTerm && selectedStatus === "all" && (
+              {!searchTerm && (
                 <Button onClick={handleAddAsset} className="btn-primary">
                   <Plus className="h-4 w-4 mr-2" />
                   Add Your First Asset
@@ -427,10 +311,7 @@ const Assets = () => {
                       Asset
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                      Priority
+                      FLOC
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                       Tags
@@ -465,22 +346,9 @@ const Assets = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <Badge
-                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${getStatusStyles(
-                            asset.status
-                          )}`}
-                        >
-                          {asset.status}
-                        </Badge>
-                      </td>
-                      <td className="px-6 py-4">
-                        <Badge
-                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${getPriorityStyles(
-                            asset.priority
-                          )}`}
-                        >
-                          {asset.priority}
-                        </Badge>
+                        <span className="text-sm font-mono text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
+                          {asset.floc}
+                        </span>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-wrap gap-1">

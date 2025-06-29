@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "@/components/ui/sonner";
 import {
   MoreHorizontal,
   X,
@@ -16,6 +17,10 @@ import {
   FileImage,
   Calendar,
   Activity,
+  FileSpreadsheet,
+  FileType,
+  Image,
+  Plus,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -24,6 +29,22 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 // Mock asset and document data
@@ -42,50 +63,42 @@ interface Document {
   status: "Active" | "Pending" | "Archived";
   uploadDate: string;
   size: string;
+  file?: File;
 }
 
-const mockDocuments: Document[] = [
-  {
-    id: "a1",
-    assetId: "1",
-    name: "Pump_Manual.pdf",
-    type: "PDF",
-    description: "Official pump operation manual.",
-    status: "Active",
-    uploadDate: "2024-01-15",
-    size: "2.4 MB",
-  },
-  {
-    id: "a2",
-    assetId: "2",
-    name: "Compressor_Specs.xlsx",
+const mockDocuments: Document[] = [];
+
+// Supported file types
+const SUPPORTED_FILE_TYPES = {
+  "application/pdf": { type: "PDF", icon: File, color: "text-red-600" },
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
     type: "Excel",
-    description: "Compressor technical specifications.",
-    status: "Pending",
-    uploadDate: "2024-01-16",
-    size: "1.8 MB",
+    icon: FileSpreadsheet,
+    color: "text-green-600",
   },
-  {
-    id: "a3",
-    assetId: "3",
-    name: "Conveyor_Photo.png",
-    type: "Image",
-    description: "Photo of conveyor belt installation.",
-    status: "Active",
-    uploadDate: "2024-01-17",
-    size: "3.2 MB",
+  "application/vnd.ms-excel": {
+    type: "Excel",
+    icon: FileSpreadsheet,
+    color: "text-green-600",
   },
-  {
-    id: "a4",
-    assetId: "1",
-    name: "Maintenance_Schedule.pdf",
-    type: "PDF",
-    description: "Monthly maintenance schedule and procedures.",
-    status: "Archived",
-    uploadDate: "2024-01-10",
-    size: "956 KB",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {
+    type: "Word",
+    icon: FileType,
+    color: "text-blue-600",
   },
-];
+  "application/msword": {
+    type: "Word",
+    icon: FileType,
+    color: "text-blue-600",
+  },
+  "image/png": { type: "Image", icon: FileImage, color: "text-purple-600" },
+  "image/jpeg": { type: "Image", icon: FileImage, color: "text-purple-600" },
+  "image/jpg": { type: "Image", icon: FileImage, color: "text-purple-600" },
+  "image/gif": { type: "Image", icon: FileImage, color: "text-purple-600" },
+  "image/webp": { type: "Image", icon: FileImage, color: "text-purple-600" },
+};
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 export function DocumentsContent({ className }: { className?: string }) {
   const [documents, setDocuments] = useState(mockDocuments);
@@ -93,9 +106,168 @@ export function DocumentsContent({ className }: { className?: string }) {
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
+  const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+
+  // Upload form state
+  const [uploadFiles, setUploadFiles] = useState<File[]>([]);
+  const [uploadAssetId, setUploadAssetId] = useState("");
+  const [uploadDescription, setUploadDescription] = useState("");
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const sizes = ["Bytes", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+  };
+
+  const validateFile = (file: File): string | null => {
+    if (!SUPPORTED_FILE_TYPES[file.type as keyof typeof SUPPORTED_FILE_TYPES]) {
+      return `File type ${file.type} is not supported. Please upload PDF, Excel, Word documents, or images.`;
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      return `File size must be less than ${formatFileSize(MAX_FILE_SIZE)}`;
+    }
+    return null;
+  };
+
+  const handleFiles = useCallback(
+    (files: FileList | File[]) => {
+      const fileArray = Array.from(files);
+      const validFiles: File[] = [];
+      const errors: string[] = [];
+
+      fileArray.forEach((file) => {
+        const error = validateFile(file);
+        if (error) {
+          errors.push(`${file.name}: ${error}`);
+        } else {
+          validFiles.push(file);
+        }
+      });
+
+      if (errors.length > 0) {
+        toast(`Upload validation failed`, {
+          description: errors.join("\n"),
+        });
+      }
+
+      if (validFiles.length > 0) {
+        setUploadFiles((prev) => [...prev, ...validFiles]);
+        if (!showUploadDialog) {
+          setShowUploadDialog(true);
+        }
+      }
+    },
+    [showUploadDialog]
+  );
+
+  const handleDrag = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  }, []);
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setDragActive(false);
+
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        handleFiles(e.dataTransfer.files);
+      }
+    },
+    [handleFiles]
+  );
+
+  const handleFileInput = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files && e.target.files[0]) {
+        handleFiles(e.target.files);
+      }
+    },
+    [handleFiles]
+  );
+
+  const removeUploadFile = (index: number) => {
+    setUploadFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleUpload = async () => {
+    if (uploadFiles.length === 0) {
+      toast("No files selected", {
+        description: "Please select files to upload.",
+      });
+      return;
+    }
+
+    if (!uploadAssetId) {
+      toast("Asset required", {
+        description: "Please select an asset for the documents.",
+      });
+      return;
+    }
+
+    setIsUploading(true);
+
+    try {
+      // Simulate upload delay
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      const newDocuments = uploadFiles.map((file, index) => {
+        const fileType =
+          SUPPORTED_FILE_TYPES[file.type as keyof typeof SUPPORTED_FILE_TYPES];
+        return {
+          id: `upload_${Date.now()}_${index}`,
+          assetId: uploadAssetId,
+          name: file.name,
+          type: fileType.type,
+          description:
+            uploadDescription ||
+            `Uploaded ${fileType.type.toLowerCase()} document`,
+          status: "Active" as const,
+          uploadDate: new Date().toISOString().split("T")[0],
+          size: formatFileSize(file.size),
+          file,
+        };
+      });
+
+      setDocuments((prev) => [...newDocuments, ...prev]);
+
+      toast("Upload successful!", {
+        description: `Successfully uploaded ${uploadFiles.length} document${
+          uploadFiles.length > 1 ? "s" : ""
+        }`,
+      });
+
+      // Reset form
+      setShowUploadDialog(false);
+      setUploadFiles([]);
+      setUploadAssetId("");
+      setUploadDescription("");
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast("Upload failed", {
+        description:
+          "There was an error uploading your documents. Please try again.",
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const handleDelete = (id: string) => {
     setDocuments((docs) => docs.filter((doc) => doc.id !== id));
+    toast("Document deleted", {
+      description: "Document has been removed successfully.",
+    });
   };
 
   const getAssetName = (assetId: string) =>
@@ -118,6 +290,9 @@ export function DocumentsContent({ className }: { className?: string }) {
     );
     setEditingId(null);
     setEditValue("");
+    toast("Description updated", {
+      description: "Document description has been updated successfully.",
+    });
   };
 
   const handleEditCancel = () => {
@@ -168,7 +343,10 @@ export function DocumentsContent({ className }: { className?: string }) {
         return File;
       case "excel":
       case "xlsx":
-        return File;
+        return FileSpreadsheet;
+      case "word":
+      case "docx":
+        return FileType;
       case "image":
       case "png":
       case "jpg":
@@ -179,235 +357,674 @@ export function DocumentsContent({ className }: { className?: string }) {
     }
   };
 
-  const getStatusCount = (status: string) => {
-    if (status === "all") return documents.length;
-    return documents.filter((doc) => doc.status.toLowerCase() === status)
-      .length;
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50/50 dark:bg-gray-900/50">
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        {/* Header Section */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl icon-primary">
-                <FileText className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-                  Documents
-                </h1>
-                <p className="text-gray-600 dark:text-gray-400">
-                  Manage and organize your asset documentation
-                </p>
-              </div>
-            </div>
-
-            <Button className="h-11 btn-primary">
-              <Upload className="h-4 w-4 mr-2" />
-              Upload Document
-            </Button>
+    <div
+      className={cn(
+        "h-screen overflow-hidden bg-gray-50/50 dark:bg-gray-900/50",
+        className
+      )}
+      onDragEnter={handleDrag}
+      onDragLeave={handleDrag}
+      onDragOver={handleDrag}
+      onDrop={handleDrop}
+    >
+      {/* Drag overlay */}
+      {dragActive && (
+        <div className="fixed inset-0 z-50 bg-blue-500/20 backdrop-blur-sm flex items-center justify-center">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-8 border-2 border-dashed border-blue-500 text-center">
+            <Upload className="h-16 w-16 text-blue-500 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+              Drop files to upload
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400">
+              Release to upload your documents
+            </p>
           </div>
         </div>
+      )}
 
-        {/* Search and Filter Bar */}
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-1 gap-4">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <Input
-                placeholder="Search documents..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 h-11 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-              />
-            </div>
+      <div className="h-full flex flex-col mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        {filteredDocuments.length > 0 ? (
+          <>
+            {/* Header Section */}
+            <div className="mb-8 flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl icon-primary">
+                    <FileText className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+                      Documents
+                    </h1>
+                    <p className="text-gray-600 dark:text-gray-400">
+                      Manage and organize your asset documentation
+                    </p>
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                    <FileText className="h-3 w-3" />
+                    {documents.length} documents
+                  </div>
+                </div>
 
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-gray-400" />
-              <select
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-                className="h-11 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">All Status</option>
-                <option value="active">Active</option>
-                <option value="pending">Pending</option>
-                <option value="archived">Archived</option>
-              </select>
-            </div>
-          </div>
-        </div>
+                <div className="flex items-center gap-3">
+                  <Dialog
+                    open={showUploadDialog}
+                    onOpenChange={setShowUploadDialog}
+                  >
+                    <DialogTrigger asChild>
+                      <Button className="h-11 btn-primary">
+                        <Upload className="h-4 w-4 mr-2" />
+                        Upload Document
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-2xl">
+                      <DialogHeader>
+                        <DialogTitle>Upload Documents</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-6">
+                        {/* File Upload Zone */}
+                        <div className="space-y-4">
+                          <Label>Select Files</Label>
+                          <div
+                            className={cn(
+                              "border-2 border-dashed rounded-lg p-8 text-center transition-colors",
+                              dragActive
+                                ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                                : "border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500"
+                            )}
+                            onDragEnter={handleDrag}
+                            onDragLeave={handleDrag}
+                            onDragOver={handleDrag}
+                            onDrop={handleDrop}
+                          >
+                            <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                              Drop files here or click to browse
+                            </h3>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                              Supports PDF, Excel, Word documents, and images
+                              (max 10MB each)
+                            </p>
+                            <input
+                              type="file"
+                              multiple
+                              accept=".pdf,.xlsx,.xls,.docx,.doc,.png,.jpg,.jpeg,.gif,.webp"
+                              onChange={handleFileInput}
+                              className="hidden"
+                              id="file-upload"
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() =>
+                                document.getElementById("file-upload")?.click()
+                              }
+                            >
+                              <Plus className="h-4 w-4 mr-2" />
+                              Choose Files
+                            </Button>
+                          </div>
+                        </div>
 
-        {/* Documents Table */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-          {filteredDocuments.length === 0 ? (
-            <div className="text-center py-16">
-              <div className="mx-auto h-24 w-24 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-4">
-                <FileText className="h-12 w-12 text-gray-400" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                {searchTerm || selectedStatus !== "all"
-                  ? "No documents found"
-                  : "No documents yet"}
-              </h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-sm mx-auto">
-                {searchTerm || selectedStatus !== "all"
-                  ? "Try adjusting your search terms or filters"
-                  : "Get started by uploading your first document"}
-              </p>
-              {!searchTerm && selectedStatus === "all" && (
-                <Button className="btn-primary">
-                  <Upload className="h-4 w-4 mr-2" />
-                  Upload Your First Document
-                </Button>
-              )}
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-600">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                      Document
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                      Asset
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                      Description
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                      Uploaded
-                    </th>
-                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
-                  {filteredDocuments.map((doc) => {
-                    const FileIcon = getFileIcon(doc.type);
-                    return (
-                      <tr
-                        key={doc.id}
-                        className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                      >
-                        <td className="px-6 py-4">
-                          <div className="flex items-start gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-lg icon-primary">
-                              <FileIcon className="h-5 w-5 text-white" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <h4 className="font-semibold text-gray-900 dark:text-white truncate">
-                                {doc.name}
-                              </h4>
-                              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                                {doc.type} • {doc.size}
-                              </p>
+                        {/* Selected Files */}
+                        {uploadFiles.length > 0 && (
+                          <div className="space-y-2">
+                            <Label>Selected Files ({uploadFiles.length})</Label>
+                            <div className="max-h-40 overflow-y-auto space-y-2">
+                              {uploadFiles.map((file, index) => {
+                                const fileType =
+                                  SUPPORTED_FILE_TYPES[
+                                    file.type as keyof typeof SUPPORTED_FILE_TYPES
+                                  ];
+                                const FileIcon = fileType?.icon || FileText;
+                                return (
+                                  <div
+                                    key={index}
+                                    className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                                  >
+                                    <FileIcon
+                                      className={cn(
+                                        "h-5 w-5",
+                                        fileType?.color || "text-gray-500"
+                                      )}
+                                    />
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                        {file.name}
+                                      </p>
+                                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                                        {fileType?.type || "Unknown"} •{" "}
+                                        {formatFileSize(file.size)}
+                                      </p>
+                                    </div>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => removeUploadFile(index)}
+                                      className="h-8 w-8 p-0 text-gray-400 hover:text-red-500"
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <p className="text-sm font-medium text-gray-900 dark:text-white">
-                            {getAssetName(doc.assetId)}
-                          </p>
-                        </td>
-                        <td className="px-6 py-4">
-                          <Badge
-                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${getStatusStyles(
-                              doc.status
-                            )}`}
+                        )}
+
+                        {/* Asset Selection */}
+                        <div className="space-y-2">
+                          <Label htmlFor="asset">Associated Asset *</Label>
+                          <Select
+                            value={uploadAssetId}
+                            onValueChange={setUploadAssetId}
                           >
-                            {doc.status}
-                          </Badge>
-                        </td>
-                        <td className="px-6 py-4">
-                          {editingId === doc.id ? (
-                            <input
-                              type="text"
-                              className="w-full p-1 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400 bg-background text-foreground"
-                              value={editValue}
-                              onChange={handleEditChange}
-                              onBlur={() => handleEditSave(doc.id)}
-                              onKeyDown={(e) => handleEditKeyDown(e, doc.id)}
-                              autoFocus
-                            />
-                          ) : (
-                            <span
-                              className="cursor-pointer hover:underline text-sm text-gray-600 dark:text-gray-400"
-                              onClick={() =>
-                                handleEditStart(doc.id, doc.description)
-                              }
-                              title="Click to edit description"
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select an asset" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {mockAssets.map((asset) => (
+                                <SelectItem key={asset.id} value={asset.id}>
+                                  {asset.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Description */}
+                        <div className="space-y-2">
+                          <Label htmlFor="description">
+                            Description (Optional)
+                          </Label>
+                          <Textarea
+                            id="description"
+                            placeholder="Add a description for these documents..."
+                            value={uploadDescription}
+                            onChange={(e) =>
+                              setUploadDescription(e.target.value)
+                            }
+                            rows={3}
+                          />
+                        </div>
+
+                        {/* Upload Button */}
+                        <div className="flex justify-end gap-3">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setShowUploadDialog(false)}
+                            disabled={isUploading}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            onClick={handleUpload}
+                            disabled={
+                              isUploading ||
+                              uploadFiles.length === 0 ||
+                              !uploadAssetId
+                            }
+                            className="btn-primary"
+                          >
+                            {isUploading ? (
+                              <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                Uploading...
+                              </>
+                            ) : (
+                              <>
+                                <Upload className="h-4 w-4 mr-2" />
+                                Upload {uploadFiles.length} File
+                                {uploadFiles.length !== 1 ? "s" : ""}
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </div>
+            </div>
+
+            {/* Search and Filter Bar */}
+            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between flex-shrink-0">
+              <div className="flex flex-1 gap-4">
+                <div className="relative flex-1 max-w-md">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <Input
+                    placeholder="Search documents..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 h-11 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Filter className="h-4 w-4 text-gray-400" />
+                  <select
+                    value={selectedStatus}
+                    onChange={(e) => setSelectedStatus(e.target.value)}
+                    className="h-11 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="all">All Status</option>
+                    <option value="active">Active</option>
+                    <option value="pending">Pending</option>
+                    <option value="archived">Archived</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Documents Table - Takes remaining height */}
+            <div className="flex-1 min-h-0 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+              <div className="overflow-x-auto h-full">
+                <table className="w-full">
+                  <thead className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-600">
+                    <tr>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                        Document
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                        Asset
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                        Description
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                        Uploaded
+                      </th>
+                      <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
+                    {filteredDocuments.map((doc) => {
+                      const FileIcon = getFileIcon(doc.type);
+                      return (
+                        <tr
+                          key={doc.id}
+                          className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                        >
+                          <td className="px-6 py-4">
+                            <div className="flex items-start gap-3">
+                              <div className="flex h-10 w-10 items-center justify-center rounded-lg icon-primary">
+                                <FileIcon className="h-5 w-5 text-white" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <h4 className="font-semibold text-gray-900 dark:text-white truncate">
+                                  {doc.name}
+                                </h4>
+                                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                  {doc.type} • {doc.size}
+                                </p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <p className="text-sm font-medium text-gray-900 dark:text-white">
+                              {getAssetName(doc.assetId)}
+                            </p>
+                          </td>
+                          <td className="px-6 py-4">
+                            <Badge
+                              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${getStatusStyles(
+                                doc.status
+                              )}`}
                             >
-                              {doc.description || (
-                                <span className="text-muted-foreground italic">
-                                  (No description)
-                                </span>
-                              )}
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
-                          {new Date(doc.uploadDate).toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                              >
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-48">
-                              <DropdownMenuItem>
-                                <Eye className="mr-2 h-4 w-4" />
-                                View Document
-                              </DropdownMenuItem>
-                              <DropdownMenuItem>
-                                <Download className="mr-2 h-4 w-4" />
-                                Download
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
+                              {doc.status}
+                            </Badge>
+                          </td>
+                          <td className="px-6 py-4">
+                            {editingId === doc.id ? (
+                              <input
+                                type="text"
+                                className="w-full p-1 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400 bg-background text-foreground"
+                                value={editValue}
+                                onChange={handleEditChange}
+                                onBlur={() => handleEditSave(doc.id)}
+                                onKeyDown={(e) => handleEditKeyDown(e, doc.id)}
+                                autoFocus
+                              />
+                            ) : (
+                              <span
+                                className="cursor-pointer hover:underline text-sm text-gray-600 dark:text-gray-400"
                                 onClick={() =>
                                   handleEditStart(doc.id, doc.description)
                                 }
+                                title="Click to edit description"
                               >
-                                <Edit className="mr-2 h-4 w-4" />
-                                Edit Description
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onClick={() => handleDelete(doc.id)}
-                                className="text-red-600 focus:text-red-600 dark:text-red-400"
-                              >
-                                <X className="mr-2 h-4 w-4" />
-                                Remove
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                                {doc.description || (
+                                  <span className="text-muted-foreground italic">
+                                    (No description)
+                                  </span>
+                                )}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
+                            {new Date(doc.uploadDate).toLocaleDateString()}
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                                >
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-48">
+                                <DropdownMenuItem>
+                                  <Eye className="mr-2 h-4 w-4" />
+                                  View Document
+                                </DropdownMenuItem>
+                                <DropdownMenuItem>
+                                  <Download className="mr-2 h-4 w-4" />
+                                  Download
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    handleEditStart(doc.id, doc.description)
+                                  }
+                                >
+                                  <Edit className="mr-2 h-4 w-4" />
+                                  Edit Description
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => handleDelete(doc.id)}
+                                  className="text-red-600 focus:text-red-600 dark:text-red-400"
+                                >
+                                  <X className="mr-2 h-4 w-4" />
+                                  Remove
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          )}
-        </div>
+          </>
+        ) : (
+          <>
+            {/* Header Section for Empty State */}
+            <div className="mb-8 flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl icon-primary">
+                    <FileText className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+                      Documents
+                    </h1>
+                    <p className="text-gray-600 dark:text-gray-400">
+                      Manage and organize your asset documentation
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <Dialog
+                    open={showUploadDialog}
+                    onOpenChange={setShowUploadDialog}
+                  >
+                    <DialogTrigger asChild>
+                      <Button className="h-11 btn-primary">
+                        <Upload className="h-4 w-4 mr-2" />
+                        Upload Document
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-2xl">
+                      <DialogHeader>
+                        <DialogTitle>Upload Documents</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-6">
+                        {/* File Upload Zone */}
+                        <div className="space-y-4">
+                          <Label>Select Files</Label>
+                          <div
+                            className={cn(
+                              "border-2 border-dashed rounded-lg p-8 text-center transition-colors",
+                              dragActive
+                                ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                                : "border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500"
+                            )}
+                            onDragEnter={handleDrag}
+                            onDragLeave={handleDrag}
+                            onDragOver={handleDrag}
+                            onDrop={handleDrop}
+                          >
+                            <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                              Drop files here or click to browse
+                            </h3>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                              Supports PDF, Excel, Word documents, and images
+                              (max 10MB each)
+                            </p>
+                            <input
+                              type="file"
+                              multiple
+                              accept=".pdf,.xlsx,.xls,.docx,.doc,.png,.jpg,.jpeg,.gif,.webp"
+                              onChange={handleFileInput}
+                              className="hidden"
+                              id="file-upload-empty"
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() =>
+                                document
+                                  .getElementById("file-upload-empty")
+                                  ?.click()
+                              }
+                            >
+                              <Plus className="h-4 w-4 mr-2" />
+                              Choose Files
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Selected Files */}
+                        {uploadFiles.length > 0 && (
+                          <div className="space-y-2">
+                            <Label>Selected Files ({uploadFiles.length})</Label>
+                            <div className="max-h-40 overflow-y-auto space-y-2">
+                              {uploadFiles.map((file, index) => {
+                                const fileType =
+                                  SUPPORTED_FILE_TYPES[
+                                    file.type as keyof typeof SUPPORTED_FILE_TYPES
+                                  ];
+                                const FileIcon = fileType?.icon || FileText;
+                                return (
+                                  <div
+                                    key={index}
+                                    className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                                  >
+                                    <FileIcon
+                                      className={cn(
+                                        "h-5 w-5",
+                                        fileType?.color || "text-gray-500"
+                                      )}
+                                    />
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                        {file.name}
+                                      </p>
+                                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                                        {fileType?.type || "Unknown"} •{" "}
+                                        {formatFileSize(file.size)}
+                                      </p>
+                                    </div>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => removeUploadFile(index)}
+                                      className="h-8 w-8 p-0 text-gray-400 hover:text-red-500"
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Asset Selection */}
+                        <div className="space-y-2">
+                          <Label htmlFor="asset">Associated Asset *</Label>
+                          <Select
+                            value={uploadAssetId}
+                            onValueChange={setUploadAssetId}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select an asset" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {mockAssets.map((asset) => (
+                                <SelectItem key={asset.id} value={asset.id}>
+                                  {asset.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Description */}
+                        <div className="space-y-2">
+                          <Label htmlFor="description">
+                            Description (Optional)
+                          </Label>
+                          <Textarea
+                            id="description"
+                            placeholder="Add a description for these documents..."
+                            value={uploadDescription}
+                            onChange={(e) =>
+                              setUploadDescription(e.target.value)
+                            }
+                            rows={3}
+                          />
+                        </div>
+
+                        {/* Upload Button */}
+                        <div className="flex justify-end gap-3">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setShowUploadDialog(false)}
+                            disabled={isUploading}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            onClick={handleUpload}
+                            disabled={
+                              isUploading ||
+                              uploadFiles.length === 0 ||
+                              !uploadAssetId
+                            }
+                            className="btn-primary"
+                          >
+                            {isUploading ? (
+                              <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                Uploading...
+                              </>
+                            ) : (
+                              <>
+                                <Upload className="h-4 w-4 mr-2" />
+                                Upload {uploadFiles.length} File
+                                {uploadFiles.length !== 1 ? "s" : ""}
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </div>
+            </div>
+
+            {/* Upload Zone */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+              <div
+                className={cn(
+                  "border-2 border-dashed rounded-lg p-16 text-center transition-colors m-8",
+                  dragActive
+                    ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                    : "border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500"
+                )}
+                onDragEnter={handleDrag}
+                onDragLeave={handleDrag}
+                onDragOver={handleDrag}
+                onDrop={handleDrop}
+              >
+                <div className="mx-auto h-24 w-24 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-6">
+                  <FileText className="h-12 w-12 text-gray-400" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                  No documents yet
+                </h3>
+                <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-sm mx-auto">
+                  Get started by uploading your first document. Drag and drop
+                  files here or click the button below.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <input
+                    type="file"
+                    multiple
+                    accept=".pdf,.xlsx,.xls,.docx,.doc,.png,.jpg,.jpeg,.gif,.webp"
+                    onChange={handleFileInput}
+                    className="hidden"
+                    id="file-upload-main"
+                  />
+                  <Button
+                    className="btn-primary"
+                    onClick={() =>
+                      document.getElementById("file-upload-main")?.click()
+                    }
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Upload Your First Document
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowUploadDialog(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Browse Files
+                  </Button>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-4">
+                  Supports PDF, Excel, Word documents, and images (max 10MB
+                  each)
+                </p>
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Results Summary */}
         {filteredDocuments.length > 0 && (
-          <div className="mt-4 flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
+          <div className="mt-4 flex items-center justify-between text-sm text-gray-600 dark:text-gray-400 flex-shrink-0">
             <p>
               Showing {filteredDocuments.length} of {documents.length} documents
             </p>

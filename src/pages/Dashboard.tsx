@@ -141,14 +141,14 @@ const Dashboard = () => {
         <WelcomeModal />
         <div className="fixed top-16 left-0 right-0 bottom-0 w-full h-[calc(100vh-4rem)]">
           {/* Layout: Sidebar (overlapping) | Main Content | Chat */}
-          <div className="flex h-full w-full">
+          <div className="relative flex h-full w-full">
             {/* Sidebar (overlaps main content) */}
-            <div className="relative z-50" style={{ width: SIDEBAR_COLLAPSED }}>
+            <div className="relative z-20" style={{ width: SIDEBAR_COLLAPSED }}>
               <AppSidebar selected={selectedNav} onSelect={setSelectedNav} />
             </div>
             {/* Main content fills the space between sidebar and AI panel */}
             <div
-              className="flex-1 min-w-0 h-full overflow-x-auto"
+              className="relative z-10 flex-1 min-w-0 h-full overflow-x-auto"
               style={{ marginRight: chatPanelWidth }}
             >
               <MainContent
@@ -164,7 +164,7 @@ const Dashboard = () => {
               />
             </div>
             {/* AI Chat Panel on the right - Fixed position */}
-            <div className="fixed right-0 top-16 bottom-0 z-40">
+            <div className="fixed right-0 top-16 bottom-0 z-30">
               <AIChatPanel
                 className="h-full"
                 fmecaData={fmecaData}

@@ -7,8 +7,6 @@ import {
   AlertTriangle,
   Edit,
   HelpCircle,
-  Bot,
-  User,
   Sparkles,
   GripVertical,
 } from "lucide-react";
@@ -335,7 +333,10 @@ export function AIChatPanel({
           {messages.length === 0 ? (
             <WelcomeMessage onPromptClick={handlePromptClick} />
           ) : (
-            <ScrollArea className="flex-1 px-4" ref={viewportRef}>
+            <ScrollArea
+              className="flex-1 px-4 scrollbar-thin"
+              ref={viewportRef}
+            >
               <div className="space-y-4 py-4">
                 {messages.map((message) => (
                   <div
@@ -345,17 +346,10 @@ export function AIChatPanel({
                       message.type === "user" ? "justify-end" : "justify-start"
                     )}
                   >
-                    {/* Avatar */}
-                    {message.type === "ai" && (
-                      <div className="w-8 h-8 icon-primary rounded-lg flex items-center justify-center shadow-sm flex-shrink-0">
-                        <Bot className="w-4 h-4 text-white" />
-                      </div>
-                    )}
-
                     {/* Message Content */}
                     <div
                       className={cn(
-                        "max-w-[85%] rounded-2xl px-4 py-3 shadow-sm",
+                        "max-w-full rounded-2xl px-4 py-3 shadow-sm",
                         message.type === "user"
                           ? "btn-primary rounded-br-md"
                           : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-bl-md"
@@ -427,22 +421,12 @@ export function AIChatPanel({
                         </div>
                       )}
                     </div>
-
-                    {/* User Avatar */}
-                    {message.type === "user" && (
-                      <div className="w-8 h-8 icon-secondary rounded-lg flex items-center justify-center shadow-sm flex-shrink-0">
-                        <User className="w-4 h-4 text-white" />
-                      </div>
-                    )}
                   </div>
                 ))}
 
                 {/* Enhanced Loading Indicator */}
                 {isLoading && (
-                  <div className="flex gap-3 justify-start">
-                    <div className="w-8 h-8 icon-primary rounded-lg flex items-center justify-center shadow-sm flex-shrink-0">
-                      <Bot className="w-4 h-4 text-white" />
-                    </div>
+                  <div className="flex justify-start">
                     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl rounded-bl-md px-4 py-3 shadow-sm">
                       <div className="flex items-center gap-1">
                         <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>

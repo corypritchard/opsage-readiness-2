@@ -90,7 +90,7 @@ const FeaturesSection = () => {
           />
         </svg>
       </div>
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl mx-auto relative z-10">
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-4xl font-semibold text-foreground mb-4">
             Key Features
@@ -103,9 +103,9 @@ const FeaturesSection = () => {
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
           {features.map((feature, index) => (
-            <div key={index} className="group">
-              <div className="bg-card rounded-lg p-6 h-full border border-border hover:shadow-md transition-shadow">
-                <div className="w-12 h-12 bg-primary text-primary-foreground rounded-lg flex items-center justify-center mb-4 group-hover:bg-accent group-hover:text-accent-foreground transition-colors">
+            <div key={index}>
+              <div className="bg-card rounded-lg p-8 h-full border border-border shadow-sm">
+                <div className="w-12 h-12 bg-primary text-primary-foreground rounded-lg flex items-center justify-center mb-4">
                   <feature.icon className="h-6 w-6" />
                 </div>
 
