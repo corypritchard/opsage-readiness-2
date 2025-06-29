@@ -1,0 +1,332 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. */
+
+@layer base {
+  :root {
+    --background: 210 1% 98%; /* #F9FAFB */
+    --foreground: 222.2 84% 4.9%; /* #0C0A09 Dark Charcoal */
+
+    --card: 0 0% 100%; /* #FFFFFF Pure White */
+    --card-foreground: 222.2 84% 4.9%; /* #0C0A09 Dark Charcoal */
+
+    --popover: 0 0% 100%; /* #FFFFFF Pure White */
+    --popover-foreground: 222.2 84% 4.9%; /* #0C0A09 Dark Charcoal */
+
+    --primary: 222.2 47.4% 11.2%; /* #0F172A Dark Navy */
+    --primary-foreground: 210 40% 98%; /* #F8FAFC Light Gray */
+
+    --secondary: 210 40% 96.1%; /* #F1F5F9 Light Blue Gray */
+    --secondary-foreground: 222.2 47.4% 11.2%; /* #0F172A Dark Navy */
+
+    --muted: 210 40% 96.1%; /* #F1F5F9 Light Blue Gray */
+    --muted-foreground: 215.4 16.3% 46.9%; /* #64748B Slate Gray */
+
+    --accent: 210 40% 96.1%; /* #F1F5F9 Light Blue Gray */
+    --accent-foreground: 222.2 47.4% 11.2%; /* #0F172A Dark Navy */
+
+    --destructive: 0 84.2% 60.2%; /* #EF4444 Red */
+    --destructive-foreground: 210 40% 98%; /* #F8FAFC Light Gray */
+
+    --success: 160 72% 38%;              /* #10B981 Emerald Green */
+    --warning: 42 96% 53%;               /* #F59E0B Amber Yellow */
+
+    --border: 214.3 31.8% 91.4%; /* #E2E8F0 Light Border Gray */
+    --input: 214.3 31.8% 91.4%; /* #E2E8F0 Light Border Gray */
+    --ring: 222.2 84% 4.9%; /* #0C0A09 Dark Charcoal */
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 0 0% 100%; /* #FFFFFF */
+    --sidebar-foreground: 240 5.3% 26.1%; /* #404040 Medium Gray */
+    --sidebar-primary: 240 5.9% 10%; /* #171717 Very Dark Gray */
+    --sidebar-primary-foreground: 0 0% 98%; /* #FAFAFA Almost White */
+    --sidebar-accent: 240 4.8% 95.9%; /* #F5F5F5 Light Gray */
+    --sidebar-accent-foreground: 240 5.9% 10%; /* #171717 Very Dark Gray */
+    --sidebar-border: 220 13% 91%; /* #E5E5E5 Light Border */
+    --sidebar-ring: 217.2 91.2% 59.8%; /* #3B82F6 Blue */
+
+    --scrollbar-thumb: 0 0% 74%;      /* #bdbdbd Gray */
+    --scrollbar-track: 0 0% 100%;     /* #FFFFFF White */
+
+    --table-cell: 0 0% 100%; /* #FFFFFF for light mode */
+    --table-background: 210 20% 98%; /* #f9fafb (gray-50) */
+    --table-header: 220 14% 94%;     /* #f3f4f6 (gray-100) */
+
+    /* Standardized Button Colors - Based on Maintenance Tasks button */
+    /* --button-primary-from: 214 95% 36%; /* #1d4ed8 (blue-600) */
+    /* --button-primary-to: 214 88% 27%;   #1e3a8a (blue-800) */
+    /* --button-primary-hover-from: 214 100% 32%; #1c4ed8 (blue-700) */
+    /* --button-primary-hover-to: 214 95% 24%;    #1e40af (blue-900) */
+
+    --button-primary-from: 240, 6%, 10%; /* #1d4ed8 (blue-600) */
+    --button-primary-to: 240, 6%, 10%; /*  #1e3a8a (blue-800) */
+    --button-primary-hover-from: 240, 6%, 10%; /* #1c4ed8 (blue-700) */
+    --button-primary-hover-to: 240, 6%, 10%; /* #1e40af (blue-900) */
+    
+    --button-secondary-from: 220 13% 69%; /* #9ca3af (gray-400) */
+    --button-secondary-to: 220 9% 46%;    /* #6b7280 (gray-500) */
+    --button-secondary-hover-from: 220 9% 46%;  /* #6b7280 (gray-500) */
+    --button-secondary-hover-to: 215 25% 27%;   /* #374151 (gray-600) */
+    
+    --button-success-from: 160 84% 39%; /* #059669 (emerald-600) */
+    --button-success-to: 160 84% 32%;   /* #047857 (emerald-700) */
+    --button-success-hover-from: 160 84% 32%; /* #047857 (emerald-700) */
+    --button-success-hover-to: 160 84% 26%;   /* #065f46 (emerald-800) */
+    
+    --button-warning-from: 32 95% 44%;  /* #d97706 (amber-600) */
+    --button-warning-to: 25 95% 39%;    /* #b45309 (amber-700) */
+    --button-warning-hover-from: 25 95% 39%; /* #b45309 (amber-700) */
+    --button-warning-hover-to: 20 91% 33%;   /* #92400e (amber-800) */
+    
+    --button-danger-from: 0 84% 60%;    /* #dc2626 (red-600) */
+    --button-danger-to: 0 91% 48%;      /* #b91c1c (red-700) */
+    --button-danger-hover-from: 0 91% 48%;  /* #b91c1c (red-700) */
+    --button-danger-hover-to: 0 93% 41%;    /* #991b1b (red-800) */
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%; /* #0C0A09 Dark Charcoal */
+    --foreground: 210 40% 98%; /* #F8FAFC Light Gray */
+
+    --card: 222.2 84% 4.9%; /* #0C0A09 Dark Charcoal */
+    --card-foreground: 210 40% 98%; /* #F8FAFC Light Gray */
+
+    --popover: 222.2 84% 4.9%; /* #0C0A09 Dark Charcoal */
+    --popover-foreground: 210 40% 98%; /* #F8FAFC Light Gray */
+
+    --primary: 210 40% 98%; /* #F8FAFC Light Gray */
+    --primary-foreground: 222.2 47.4% 11.2%; /* #0F172A Dark Navy */
+
+    --secondary: 217.2 32.6% 17.5%; /* #374151 Dark Gray */
+    --secondary-foreground: 210 40% 98%; /* #F8FAFC Light Gray */
+
+    --muted: 217.2 32.6% 17.5%; /* #374151 Dark Gray */
+    --muted-foreground: 215 20.2% 65.1%; /* #9CA3AF Medium Gray */
+
+    --accent: 217.2 32.6% 17.5%; /* #374151 Dark Gray */
+    --accent-foreground: 210 40% 98%; /* #F8FAFC Light Gray */
+
+    --destructive: 0 62.8% 30.6%; /* #991B1B Dark Red */
+    --destructive-foreground: 210 40% 98%; /* #F8FAFC Light Gray */
+
+    --success: 160 72% 38%;             /* #10B981 Emerald Green */
+    --warning: 42 96% 53%;              /* #F59E0B Amber Yellow */
+
+    --border: 217.2 32.6% 17.5%; /* #374151 Dark Gray */
+    --input: 217.2 32.6% 17.5%; /* #374151 Dark Gray */
+    --ring: 212.7 26.8% 83.9%; /* #CBD5E1 Light Blue Gray */
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 240 5.9% 10%; /* #171717 Very Dark Gray */
+    --sidebar-foreground: 240 4.8% 95.9%; /* #F5F5F5 Light Gray */
+    --sidebar-primary: 224.3 76.3% 48%; /* #3B82F6 Blue */
+    --sidebar-primary-foreground: 0 0% 100%; /* #FFFFFF Pure White */
+    --sidebar-accent: 240 3.7% 15.9%; /* #262626 Dark Accent */
+    --sidebar-accent-foreground: 240 4.8% 95.9%; /* #F5F5F5 Light Gray */
+    --sidebar-border: 240 3.7% 15.9%; /* #262626 Dark Border */
+    --sidebar-ring: 217.2 91.2% 59.8%; /* #3B82F6 Blue */
+
+    --scrollbar-thumb: 0 0% 45%;     /* #737373 Dark Gray */
+    --scrollbar-track: 0 0% 11%;     /* #1C1C1C Very Dark Gray */
+
+    --table-cell: 217.2 32.6% 17.5%; /* #374151 Dark Gray */
+    --table-background: 222.2 84% 6.5%; /* #18181b */
+    --table-header: 222.2 84% 8.5%;     /* #232329 */
+
+    /* Standardized Button Colors - Dark Mode */
+    --button-primary-from: 214 95% 36%; /* #1d4ed8 (blue-600) - same as light mode */
+    --button-primary-to: 214 88% 27%;   /* #1e3a8a (blue-800) - same as light mode */
+    --button-primary-hover-from: 214 100% 32%; /* #1c4ed8 (blue-700) */
+    --button-primary-hover-to: 214 95% 24%;    /* #1e40af (blue-900) */
+    
+    --button-secondary-from: 220 9% 46%;  /* #6b7280 (gray-500) */
+    --button-secondary-to: 215 25% 27%;   /* #374151 (gray-600) */
+    --button-secondary-hover-from: 215 25% 27%; /* #374151 (gray-600) */
+    --button-secondary-hover-to: 217 33% 17%;   /* #1f2937 (gray-800) */
+    
+    --button-success-from: 160 84% 39%; /* #059669 (emerald-600) - same as light mode */
+    --button-success-to: 160 84% 32%;   /* #047857 (emerald-700) - same as light mode */
+    --button-success-hover-from: 160 84% 32%; /* #047857 (emerald-700) */
+    --button-success-hover-to: 160 84% 26%;   /* #065f46 (emerald-800) */
+    
+    --button-warning-from: 32 95% 44%;  /* #d97706 (amber-600) - same as light mode */
+    --button-warning-to: 25 95% 39%;    /* #b45309 (amber-700) - same as light mode */
+    --button-warning-hover-from: 25 95% 39%; /* #b45309 (amber-700) */
+    --button-warning-hover-to: 20 91% 33%;   /* #92400e (amber-800) */
+    
+    --button-danger-from: 0 84% 60%;    /* #dc2626 (red-600) - same as light mode */
+    --button-danger-to: 0 91% 48%;      /* #b91c1c (red-700) - same as light mode */
+    --button-danger-hover-from: 0 91% 48%;  /* #b91c1c (red-700) */
+    --button-danger-hover-to: 0 93% 41%;    /* #991b1b (red-800) */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  /* Custom typography styles based on Opsage brand guide */
+  .display-text {
+    @apply text-4xl md:text-5xl lg:text-6xl font-bold leading-tight;
+    font-family: 'Sora', 'Inter', system-ui, sans-serif;
+  }
+  
+  .headline-text {
+    @apply text-2xl md:text-3xl lg:text-4xl font-semibold leading-tight;
+    font-family: 'Sora', 'Inter', system-ui, sans-serif;
+  }
+  
+  .body-text {
+    @apply text-base md:text-lg leading-relaxed;
+  }
+  
+  .caption-text {
+    @apply text-sm font-medium;
+  }
+}
+
+/* Custom scrollbar styling for chat panel */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 10px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #bdbdbd;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: #bdbdbd transparent;
+}
+
+.dark .scrollbar-thin::-webkit-scrollbar-thumb {
+  background: hsl(var(--scrollbar-thumb));
+}
+.dark .scrollbar-thin::-webkit-scrollbar-track {
+  background: hsl(var(--scrollbar-track));
+}
+.dark .scrollbar-thin {
+  scrollbar-color: hsl(var(--scrollbar-thumb)) hsl(var(--scrollbar-track));
+}
+
+/* Global dark mode scrollbar styles */
+html.dark ::-webkit-scrollbar {
+  width: 10px;
+}
+html.dark ::-webkit-scrollbar-thumb {
+  background: hsl(var(--scrollbar-thumb)) !important;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+html.dark ::-webkit-scrollbar-track {
+  background: hsl(var(--scrollbar-track)) !important;
+}
+html.dark {
+  scrollbar-color: hsl(var(--scrollbar-thumb)) hsl(var(--scrollbar-track));
+}
+
+/* Standardized Button Classes */
+@layer components {
+  .btn-primary {
+    @apply bg-gradient-to-r text-white shadow-lg transition-all duration-200;
+    background-image: linear-gradient(to right, hsl(var(--button-primary-from)), hsl(var(--button-primary-to)));
+    box-shadow: 0 4px 14px 0 hsla(var(--button-primary-from), 0.25);
+  }
+  
+  .btn-primary:hover {
+    background-image: linear-gradient(to right, hsl(var(--button-primary-hover-from)), hsl(var(--button-primary-hover-to)));
+    box-shadow: 0 6px 20px 0 hsla(var(--button-primary-from), 0.35);
+    transform: translateY(-1px);
+  }
+  
+  .btn-secondary {
+    @apply bg-gradient-to-r text-white shadow-lg transition-all duration-200;
+    background-image: linear-gradient(to right, hsl(var(--button-secondary-from)), hsl(var(--button-secondary-to)));
+    box-shadow: 0 4px 14px 0 hsla(var(--button-secondary-from), 0.25);
+  }
+  
+  .btn-secondary:hover {
+    background-image: linear-gradient(to right, hsl(var(--button-secondary-hover-from)), hsl(var(--button-secondary-hover-to)));
+    box-shadow: 0 6px 20px 0 hsla(var(--button-secondary-from), 0.35);
+    transform: translateY(-1px);
+  }
+  
+  .btn-success {
+    @apply bg-gradient-to-r text-white shadow-lg transition-all duration-200;
+    background-image: linear-gradient(to right, hsl(var(--button-success-from)), hsl(var(--button-success-to)));
+    box-shadow: 0 4px 14px 0 hsla(var(--button-success-from), 0.25);
+  }
+  
+  .btn-success:hover {
+    background-image: linear-gradient(to right, hsl(var(--button-success-hover-from)), hsl(var(--button-success-hover-to)));
+    box-shadow: 0 6px 20px 0 hsla(var(--button-success-from), 0.35);
+    transform: translateY(-1px);
+  }
+  
+  .btn-warning {
+    @apply bg-gradient-to-r text-white shadow-lg transition-all duration-200;
+    background-image: linear-gradient(to right, hsl(var(--button-warning-from)), hsl(var(--button-warning-to)));
+    box-shadow: 0 4px 14px 0 hsla(var(--button-warning-from), 0.25);
+  }
+  
+  .btn-warning:hover {
+    background-image: linear-gradient(to right, hsl(var(--button-warning-hover-from)), hsl(var(--button-warning-hover-to)));
+    box-shadow: 0 6px 20px 0 hsla(var(--button-warning-from), 0.35);
+    transform: translateY(-1px);
+  }
+  
+  .btn-danger {
+    @apply bg-gradient-to-r text-white shadow-lg transition-all duration-200;
+    background-image: linear-gradient(to right, hsl(var(--button-danger-from)), hsl(var(--button-danger-to)));
+    box-shadow: 0 4px 14px 0 hsla(var(--button-danger-from), 0.25);
+  }
+  
+  .btn-danger:hover {
+    background-image: linear-gradient(to right, hsl(var(--button-danger-hover-from)), hsl(var(--button-danger-hover-to)));
+    box-shadow: 0 6px 20px 0 hsla(var(--button-danger-from), 0.35);
+    transform: translateY(-1px);
+  }
+  
+  /* Icon containers for consistent styling */
+  .icon-primary {
+    @apply bg-gradient-to-br shadow-lg;
+    background-image: linear-gradient(to bottom right, hsl(var(--button-primary-from)), hsl(var(--button-primary-to)));
+  }
+  
+  .icon-secondary {
+    @apply bg-gradient-to-br shadow-lg;
+    background-image: linear-gradient(to bottom right, hsl(var(--button-secondary-from)), hsl(var(--button-secondary-to)));
+  }
+  
+  .icon-success {
+    @apply bg-gradient-to-br shadow-lg;
+    background-image: linear-gradient(to bottom right, hsl(var(--button-success-from)), hsl(var(--button-success-to)));
+  }
+  
+  .icon-warning {
+    @apply bg-gradient-to-br shadow-lg;
+    background-image: linear-gradient(to bottom right, hsl(var(--button-warning-from)), hsl(var(--button-warning-to)));
+  }
+  
+  .icon-danger {
+    @apply bg-gradient-to-br shadow-lg;
+    background-image: linear-gradient(to bottom right, hsl(var(--button-danger-from)), hsl(var(--button-danger-to)));
+  }
+}
