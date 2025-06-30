@@ -266,6 +266,196 @@ export type Database = {
         };
         Relationships: [];
       };
+      assets: {
+        Row: {
+          created_at: string;
+          id: string;
+          name: string;
+          type: string;
+          description: string | null;
+          project_id: string;
+          status: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          name: string;
+          type: string;
+          description?: string | null;
+          project_id: string;
+          status?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          name?: string;
+          type?: string;
+          description?: string | null;
+          project_id?: string;
+          status?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "assets_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "projects";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      documents: {
+        Row: {
+          id: string;
+          name: string;
+          description: string | null;
+          file_path: string;
+          file_type: string;
+          file_size: number;
+          metadata: Json | null;
+          project_id: string;
+          asset_id: string | null;
+          created_at: string;
+          updated_at: string;
+          user_id: string;
+          status: string;
+          content_type: string | null;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          description?: string | null;
+          file_path: string;
+          file_type: string;
+          file_size: number;
+          metadata?: Json | null;
+          project_id: string;
+          asset_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          user_id: string;
+          status?: string;
+          content_type?: string | null;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          description?: string | null;
+          file_path?: string;
+          file_type?: string;
+          file_size?: number;
+          metadata?: Json | null;
+          project_id?: string;
+          asset_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          user_id?: string;
+          status?: string;
+          content_type?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "fk_project";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "projects";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "fk_asset";
+            columns: ["asset_id"];
+            isOneToOne: false;
+            referencedRelation: "assets";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "fk_user";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      document_chunks: {
+        Row: {
+          id: string;
+          document_id: string;
+          chunk_index: number;
+          content: string;
+          tokens: number;
+          metadata: Json | null;
+          embedding: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          document_id: string;
+          chunk_index: number;
+          content: string;
+          tokens: number;
+          metadata?: Json | null;
+          embedding?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          document_id?: string;
+          chunk_index?: number;
+          content?: string;
+          tokens?: number;
+          metadata?: Json | null;
+          embedding?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "fk_document";
+            columns: ["document_id"];
+            isOneToOne: false;
+            referencedRelation: "documents";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      document_processing_jobs: {
+        Row: {
+          id: string;
+          document_id: string;
+          status: string;
+          error: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          document_id: string;
+          status?: string;
+          error?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          document_id?: string;
+          status?: string;
+          error?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "fk_document";
+            columns: ["document_id"];
+            isOneToOne: false;
+            referencedRelation: "documents";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
     };
     Views: {
       [_ in never]: never;
