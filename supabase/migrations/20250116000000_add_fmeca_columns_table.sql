@@ -11,9 +11,7 @@ CREATE TABLE public.fmeca_columns (
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   
   -- Ensure unique column names per project
-  UNIQUE(project_id, column_name),
-  -- Ensure unique column order per project
-  UNIQUE(project_id, column_order)
+  UNIQUE(project_id, column_name)
 );
 
 -- Enable Row Level Security

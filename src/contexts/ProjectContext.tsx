@@ -4,6 +4,8 @@ import React, {
   useState,
   useEffect,
   ReactNode,
+  useMemo,
+  useCallback,
 } from "react";
 import {
   getFMECAProjects,
@@ -61,7 +63,7 @@ export const ProjectProvider: React.FC<ProjectProviderProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
 
-  const loadProjects = async () => {
+  const loadProjects = useCallback(async () => {
     try {
       setIsLoading(true);
       const projectsList = await getFMECAProjects();
@@ -71,7 +73,10 @@ export const ProjectProvider: React.FC<ProjectProviderProps> = ({
       if (projectsList.length === 0) {
         setShowWelcomeModal(true);
         setCurrentProject(null);
-      } else if (!currentProject || !projectsList.find(p => p.id === currentProject.id)) {
+      } else if (
+        !currentProject ||
+        !projectsList.find((p) => p.id === currentProject.id)
+      ) {
         // Auto-select the most recent project if none is selected or current project was deleted
         setCurrentProject(projectsList[0]);
       }
@@ -80,56 +85,73 @@ export const ProjectProvider: React.FC<ProjectProviderProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [currentProject]);
 
-  const createProject = async (data: {
-    name: string;
-    description?: string;
-    file_name?: string;
-  }): Promise<FMECAProject> => {
-    const project = await createFMECAProject({
-      name: data.name,
-      description: data.description || null,
-      file_name: data.file_name || null,
-    });
+  const createProject = useCallback(
+    async (data: {
+      name: string;
+      description?: string;
+      file_name?: string;
+    }): Promise<FMECAProject> => {
+      const project = await createFMECAProject({
+        name: data.name,
+        description: data.description || null,
+        file_name: data.file_name || null,
+      });
 
-    setProjects((prev) => [project, ...prev]);
-    setCurrentProject(project);
-    setShowWelcomeModal(false);
+      setProjects((prev) => [project, ...prev]);
+      setCurrentProject(project);
+      setShowWelcomeModal(false);
 
-    return project;
-  };
+      return project;
+    },
+    []
+  );
 
-  const deleteProject = async (projectId: string): Promise<void> => {
-    await deleteFMECAProject(projectId);
-    
-    // Remove from local state
-    setProjects((prev) => prev.filter(p => p.id !== projectId));
-    
-    // If the deleted project was the current project, clear it
-    if (currentProject?.id === projectId) {
-      setCurrentProject(null);
-    }
-    
-    // Reload projects to ensure consistency
-    await loadProjects();
-  };
+  const deleteProject = useCallback(
+    async (projectId: string): Promise<void> => {
+      await deleteFMECAProject(projectId);
+
+      // Remove from local state
+      setProjects((prev) => prev.filter((p) => p.id !== projectId));
+
+      // If the deleted project was the current project, clear it
+      if (currentProject?.id === projectId) {
+        setCurrentProject(null);
+      }
+
+      // Reload projects to ensure consistency
+      await loadProjects();
+    },
+    [currentProject, loadProjects]
+  );
 
   useEffect(() => {
     loadProjects();
-  }, []);
+  }, [loadProjects]);
 
-  const value: ProjectContextType = {
-    projects,
-    currentProject,
-    isLoading,
-    showWelcomeModal,
-    setCurrentProject,
-    createProject,
-    deleteProject,
-    loadProjects,
-    setShowWelcomeModal,
-  };
+  const value = useMemo<ProjectContextType>(
+    () => ({
+      projects,
+      currentProject,
+      isLoading,
+      showWelcomeModal,
+      setCurrentProject,
+      createProject,
+      deleteProject,
+      loadProjects,
+      setShowWelcomeModal,
+    }),
+    [
+      projects,
+      currentProject,
+      isLoading,
+      showWelcomeModal,
+      createProject,
+      deleteProject,
+      loadProjects,
+    ]
+  );
 
   return (
     <ProjectContext.Provider value={value}>{children}</ProjectContext.Provider>

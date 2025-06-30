@@ -66,12 +66,12 @@ export function DashboardContent() {
       setLoading(true);
 
       // Get FMECA data to count rows and equipment
-      const fmecaData = await getFMECAData(currentProject.id);
-      const fmecaRowsCount = fmecaData.length;
+      const fmecaResult = await getFMECAData(currentProject.id);
+      const fmecaRowsCount = fmecaResult.data.length;
 
       // Count unique equipment/assets from FMECA data
       const equipmentSet = new Set();
-      fmecaData.forEach((row) => {
+      fmecaResult.data.forEach((row) => {
         if (row["Asset Type"]) equipmentSet.add(row["Asset Type"]);
         if (row["Component"]) equipmentSet.add(row["Component"]);
       });

@@ -331,18 +331,13 @@ const Assets = () => {
                       className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                     >
                       <td className="px-6 py-4">
-                        <div className="flex items-start gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-lg icon-primary">
-                            <Package className="h-5 w-5 text-white" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <h4 className="font-semibold text-gray-900 dark:text-white truncate">
-                              {asset.name}
-                            </h4>
-                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
-                              {asset.description}
-                            </p>
-                          </div>
+                        <div className="min-w-0 flex-1">
+                          <h4 className="font-semibold text-gray-900 dark:text-white truncate">
+                            {asset.name}
+                          </h4>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
+                            {asset.description}
+                          </p>
                         </div>
                       </td>
                       <td className="px-6 py-4">

@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useMemo,
+} from "react";
 
 type Theme = "light" | "dark" | "system";
 
@@ -27,7 +33,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         ? "dark"
         : "light";
     }
-    return theme;
+    return theme as "light" | "dark";
   });
 
   useEffect(() => {
@@ -47,7 +53,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       return () =>
         mediaQuery.removeEventListener("change", updateResolvedTheme);
     } else {
-      setResolvedTheme(theme);
+      setResolvedTheme(theme as "light" | "dark");
     }
   }, [theme]);
 
@@ -62,10 +68,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
   }, [resolvedTheme]);
 
+  const value = useMemo(
+    () => ({ theme, setTheme, resolvedTheme }),
+    [theme, resolvedTheme]
+  );
+
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, resolvedTheme }}>
-      {children}
-    </ThemeContext.Provider>
+    <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
   );
 }
 
