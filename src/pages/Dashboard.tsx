@@ -30,6 +30,9 @@ const DashboardContent = () => {
   const [selectedNav, setSelectedNav] = useState("dashboard");
   const [chatPanelWidth, setChatPanelWidth] = useState(380);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [addChatMessage, setAddChatMessage] = useState<
+    ((message: any) => void) | null
+  >(null);
 
   const { currentProject } = useProject();
 
@@ -230,6 +233,10 @@ const DashboardContent = () => {
     setChatPanelWidth(newWidth);
   };
 
+  const handleChatRef = (addMessage: (message: any) => void) => {
+    setAddChatMessage(() => addMessage);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <DashboardHeader />
@@ -264,6 +271,7 @@ const DashboardContent = () => {
             setColumns={setColumns}
             stagedChanges={stagedChanges}
             refreshTrigger={refreshTrigger}
+            addChatMessage={addChatMessage}
           />
         </div>
 
@@ -282,6 +290,7 @@ const DashboardContent = () => {
             minWidth={320}
             maxWidth={600}
             initialWidth={380}
+            onChatRef={handleChatRef}
           />
         </div>
       </div>

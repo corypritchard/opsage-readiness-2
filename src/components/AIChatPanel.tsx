@@ -52,6 +52,7 @@ interface AIChatPanelProps {
   minWidth?: number;
   maxWidth?: number;
   initialWidth?: number;
+  onChatRef?: (addMessage: (message: AgentMessage) => void) => void;
 }
 
 // Enhanced Welcome Message Component with modern design
@@ -94,46 +95,13 @@ const WelcomeMessage: React.FC<{
             onClick={() => onPromptClick(prompt)}
             className="w-full p-4 text-left bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-sm transition-all duration-200 group"
           >
-            <div className="flex items-start gap-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
-                <Sparkles className="w-4 h-4 text-white" />
-              </div>
-              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-                {prompt}
-              </p>
-            </div>
+            <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+              {prompt}
+            </p>
           </button>
         ))}
       </div>
     </div>
-  );
-};
-
-// Thinking Process Display Component
-const ThinkingDisplay: React.FC<{ thinking: string[] }> = ({ thinking }) => {
-  if (thinking.length === 0) return null;
-
-  return (
-    <Card className="mb-4 bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-700">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm flex items-center gap-2">
-          <Brain className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-          Agent Thinking Process
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="pt-0">
-        <div className="space-y-1">
-          {thinking.map((thought, index) => (
-            <div
-              key={index}
-              className="text-xs text-gray-600 dark:text-gray-400 font-mono"
-            >
-              {thought}
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
   );
 };
 
@@ -237,6 +205,7 @@ export function AIChatPanel({
   minWidth = 320,
   maxWidth = 600,
   initialWidth = 380,
+  onChatRef,
 }: AIChatPanelProps) {
   // Function to calculate the diff between original and updated data
   const calculateDataDiff = (
@@ -365,6 +334,19 @@ export function AIChatPanel({
     }
   }, [currentProject?.id]);
 
+  // Function to add a message from external components
+  const addMessage = (message: AgentMessage) => {
+    setMessages((prev) => [...prev, message]);
+    scrollToBottom("smooth");
+  };
+
+  // Expose addMessage function to parent component
+  useEffect(() => {
+    if (onChatRef) {
+      onChatRef(addMessage);
+    }
+  }, [onChatRef]);
+
   // Resizing functionality
   const [width, setWidth] = useState(initialWidth);
   const [isResizing, setIsResizing] = useState(false);
@@ -418,6 +400,25 @@ export function AIChatPanel({
       scrollToBottom("smooth");
     }
   }, [messages]);
+
+  // Auto-resize textarea functionality
+  useEffect(() => {
+    const textarea = document.querySelector("textarea");
+    if (textarea) {
+      const adjustHeight = () => {
+        textarea.style.height = "60px"; // Reset to minimum height
+        const scrollHeight = Math.min(textarea.scrollHeight, 120); // Max height of 120px
+        textarea.style.height = scrollHeight + "px";
+      };
+
+      textarea.addEventListener("input", adjustHeight);
+      adjustHeight(); // Initial adjustment
+
+      return () => {
+        textarea.removeEventListener("input", adjustHeight);
+      };
+    }
+  }, [inputValue]);
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() || hasStagedChanges || isLoading) return;
@@ -607,34 +608,22 @@ export function AIChatPanel({
               className="flex-1 px-4 scrollbar-thin"
               ref={viewportRef}
             >
-              <div className="space-y-4 py-4">
+              <div className="space-y-4 pt-8 pb-4">
                 {messages.map((message) => (
                   <div
                     key={message.id}
                     className={cn(
-                      "flex gap-3",
+                      "flex",
                       message.role === "user" ? "justify-end" : "justify-start"
                     )}
                   >
-                    {/* Avatar */}
-                    {message.role === "assistant" && (
-                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                        <Bot className="h-4 w-4 text-white" />
-                      </div>
-                    )}
-
                     {/* Message Content */}
-                    <div
-                      className={cn(
-                        "flex-1 max-w-[80%]",
-                        message.role === "user" && "text-right"
-                      )}
-                    >
+                    <div className="max-w-[85%]">
                       <div
                         className={cn(
                           "inline-block p-3 rounded-2xl shadow-sm",
                           message.role === "user"
-                            ? "btn-primary rounded-br-md"
+                            ? "bg-slate-100 dark:bg-slate-200 border border-gray-200 dark:border-gray-700 text-black rounded-br-md"
                             : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-bl-md"
                         )}
                       >
@@ -642,15 +631,6 @@ export function AIChatPanel({
                           {message.content}
                         </p>
                       </div>
-
-                      {/* Thinking Process Display */}
-                      {message.role === "assistant" &&
-                        message.thinking &&
-                        message.thinking.length > 0 && (
-                          <div className="mt-3">
-                            <ThinkingDisplay thinking={message.thinking} />
-                          </div>
-                        )}
 
                       {/* Function Calls Display */}
                       {message.role === "assistant" &&
@@ -675,23 +655,13 @@ export function AIChatPanel({
                         {message.timestamp.toLocaleTimeString()}
                       </div>
                     </div>
-
-                    {/* User Avatar */}
-                    {message.role === "user" && (
-                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-gray-400 to-gray-600 flex items-center justify-center">
-                        <User className="h-4 w-4 text-white" />
-                      </div>
-                    )}
                   </div>
                 ))}
 
                 {/* Enhanced Loading Indicator */}
                 {isLoading && (
                   <div className="flex justify-start">
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                      <Bot className="h-4 w-4 text-white" />
-                    </div>
-                    <div className="ml-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl rounded-bl-md px-4 py-3 shadow-sm">
+                    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl rounded-bl-md px-4 py-3 shadow-sm">
                       <div className="flex items-center gap-1">
                         <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
                         <div
@@ -754,8 +724,8 @@ export function AIChatPanel({
           <div className="flex-shrink-0 p-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
             {/* Input Row */}
             <div className="flex gap-2 mb-3">
-              <div className="flex-1 relative">
-                <Input
+              <div className="flex-1">
+                <textarea
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   placeholder={
@@ -767,16 +737,10 @@ export function AIChatPanel({
                   }
                   onKeyPress={handleKeyPress}
                   disabled={isLoading || hasStagedChanges}
-                  className="pr-12 border-gray-300 dark:border-gray-600 focus:border-blue-500 dark:focus:border-blue-400 rounded-xl"
+                  rows={2}
+                  className="w-full py-3 px-4 border border-gray-300 dark:border-gray-600 focus:border-blue-500 dark:focus:border-blue-400 rounded-xl resize-none bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-colors"
+                  style={{ minHeight: "60px", maxHeight: "120px" }}
                 />
-                <Button
-                  onClick={handleSendMessage}
-                  disabled={!inputValue.trim() || isLoading || hasStagedChanges}
-                  className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8 btn-primary rounded-lg shadow-sm"
-                  size="icon"
-                >
-                  <Send className="h-4 w-4" />
-                </Button>
               </div>
             </div>
 

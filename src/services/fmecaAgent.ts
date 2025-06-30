@@ -462,14 +462,18 @@ export class ContextOptimizer {
 export class FMECAAgent {
   private projectId: string;
   private thinking: string[] = [];
+  private onThinkingUpdate?: (thought: string) => void;
 
-  constructor(projectId: string) {
+  constructor(projectId: string, onThinkingUpdate?: (thought: string) => void) {
     this.projectId = projectId;
+    this.onThinkingUpdate = onThinkingUpdate;
   }
 
   private addThinking(thought: string) {
     this.thinking.push(thought);
     console.log(`🤔 ${thought}`);
+    // Emit real-time thinking update if callback is provided
+    this.onThinkingUpdate?.(thought);
   }
 
   private async callSupabaseFunction(

@@ -1,0 +1,11 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Project context
+
+- This project is a B2B SaaS platform called Opsage. 
+- It's used by engineers in mining and heavy industries to generate and manage operational readiness data such as FMECA tables and maintenance tasks. 
+- The key functionality of the platform is to automate the process of creating FMECA, using FMECA to create maintenance tasks and then outputing maintenance tasks in the desired format for SAP or other CRM using available documentation with the AI (Opsage Assistant).
+- The stack includes: React (with TypeScript), Tailwind CSS, shadcn/ui, Supabase (Postgres), and OpenAI API for AI-assisted features.

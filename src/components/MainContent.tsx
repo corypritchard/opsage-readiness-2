@@ -18,6 +18,7 @@ interface MainContentProps {
   setColumns: (columns: string[]) => void;
   stagedChanges: StagedChanges | null;
   refreshTrigger?: number;
+  addChatMessage?: ((message: any) => void) | null;
 }
 
 export function MainContent({
@@ -31,6 +32,7 @@ export function MainContent({
   setColumns,
   stagedChanges,
   refreshTrigger,
+  addChatMessage,
 }: MainContentProps) {
   return (
     <div className={cn("flex flex-col bg-background h-full", className)}>
@@ -62,6 +64,7 @@ export function MainContent({
         <MaintenanceTasksContent
           fmecaData={fmecaData}
           selectedFile={selectedFile}
+          addChatMessage={addChatMessage}
         />
       )}
       {selectedNav === "export" && (

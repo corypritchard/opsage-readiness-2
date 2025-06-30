@@ -70,7 +70,7 @@ describe("MaintenanceTasksContent - Generate Tasks Feature", () => {
 
   describe("No FMECA Data State", () => {
     it("should display no FMECA data message when fmecaData is empty", () => {
-      render(<MaintenanceTasksContent fmecaData={[]} />);
+      render(<MaintenanceTasksContent fmecaData={[]} addChatMessage={null} />);
 
       expect(screen.getByText("No FMECA Data Available")).toBeInTheDocument();
       expect(
@@ -82,7 +82,7 @@ describe("MaintenanceTasksContent - Generate Tasks Feature", () => {
     });
 
     it("should not show generate tasks button when no FMECA data is available", () => {
-      render(<MaintenanceTasksContent fmecaData={[]} />);
+      render(<MaintenanceTasksContent fmecaData={[]} addChatMessage={null} />);
 
       expect(
         screen.queryByText("Generate Tasks with AI")
@@ -94,7 +94,12 @@ describe("MaintenanceTasksContent - Generate Tasks Feature", () => {
     const mockFMECAData = sampleFMECAData.slice(0, 3);
 
     it("should display ready for task generation message when FMECA data is available", () => {
-      render(<MaintenanceTasksContent fmecaData={mockFMECAData} />);
+      render(
+        <MaintenanceTasksContent
+          fmecaData={mockFMECAData}
+          addChatMessage={null}
+        />
+      );
 
       expect(
         screen.getByText("AI-Powered Task Generation")
@@ -107,7 +112,12 @@ describe("MaintenanceTasksContent - Generate Tasks Feature", () => {
     });
 
     it("should show the generate tasks button when FMECA data is available", () => {
-      render(<MaintenanceTasksContent fmecaData={mockFMECAData} />);
+      render(
+        <MaintenanceTasksContent
+          fmecaData={mockFMECAData}
+          addChatMessage={null}
+        />
+      );
 
       const generateButton = screen.getByRole("button", {
         name: /Generate Tasks with AI/i,
@@ -118,7 +128,12 @@ describe("MaintenanceTasksContent - Generate Tasks Feature", () => {
 
     it("should display correct FMECA data count in badge", () => {
       const largerDataSet = sampleFMECAData; // Use all sample data (6 entries)
-      render(<MaintenanceTasksContent fmecaData={largerDataSet} />);
+      render(
+        <MaintenanceTasksContent
+          fmecaData={largerDataSet}
+          addChatMessage={null}
+        />
+      );
 
       expect(screen.getByText("6 FMECA entries")).toBeInTheDocument();
     });
@@ -151,7 +166,12 @@ describe("MaintenanceTasksContent - Generate Tasks Feature", () => {
         updatedData: mockGeneratedTasks,
       });
 
-      render(<MaintenanceTasksContent fmecaData={mockFMECAData} />);
+      render(
+        <MaintenanceTasksContent
+          fmecaData={mockFMECAData}
+          addChatMessage={null}
+        />
+      );
 
       const generateButton = screen.getByRole("button", {
         name: /Generate Tasks with AI/i,

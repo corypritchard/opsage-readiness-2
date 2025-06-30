@@ -46,6 +46,7 @@ import {
 interface MaintenanceTasksContentProps {
   fmecaData: any[];
   selectedFile?: File | null;
+  addChatMessage?: ((message: any) => void) | null;
 }
 
 type FMECAProject = {
@@ -61,6 +62,7 @@ type FMECAProject = {
 export function MaintenanceTasksContent({
   fmecaData,
   selectedFile,
+  addChatMessage,
 }: MaintenanceTasksContentProps) {
   const { currentProject } = useProject();
   const hasFMECAData = fmecaData.length > 0;
@@ -192,6 +194,18 @@ export function MaintenanceTasksContent({
         toast("Maintenance tasks generated successfully!", {
           description: `Generated ${result.updatedData.length} maintenance tasks based on your FMECA analysis`,
         });
+
+        // Add message to AI chat
+        if (addChatMessage) {
+          addChatMessage({
+            id: Date.now().toString(),
+            role: "assistant" as const,
+            content: `I've generated ${result.updatedData.length} maintenance tasks based on your FMECA analysis. The tasks include preventive, predictive, and corrective maintenance activities tailored to the failure modes identified in your data.`,
+            timestamp: new Date(),
+            functionCalls: [],
+            thinking: [],
+          });
+        }
 
         // Auto-save to database if we have a current project
         if (currentProject) {
