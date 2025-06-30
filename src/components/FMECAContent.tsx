@@ -6,11 +6,14 @@ import {
   FileSpreadsheet,
   Shield,
   Table,
+  Bot,
+  TableProperties,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TanStackFMECATable } from "./TanStackFMECATable";
 import { FileUploadZone } from "./FileUploadZone";
+import { FMECAAgentChat } from "./FMECAAgentChat";
 import { toast } from "@/components/ui/sonner";
 import * as XLSX from "xlsx";
 import { createSampleFMECAFile } from "@/utils/sampleFMECAData";
@@ -47,6 +50,7 @@ export function FMECAContent({
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [loadedProjectId, setLoadedProjectId] = useState<string | null>(null);
+  const [agentMode, setAgentMode] = useState(false);
   const { currentProject } = useProject();
 
   // Load FMECA data from database when project changes (but only if data is empty)
@@ -424,6 +428,30 @@ export function FMECAContent({
                 </div>
 
                 <div className="flex items-center gap-3">
+                  {/* Mode Toggle */}
+                  <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+                    <Button
+                      variant={!agentMode ? "default" : "ghost"}
+                      size="sm"
+                      onClick={() => setAgentMode(false)}
+                      className="h-9"
+                    >
+                      <TableProperties className="h-4 w-4 mr-2" />
+                      Table View
+                    </Button>
+                    <Button
+                      variant={agentMode ? "default" : "ghost"}
+                      size="sm"
+                      onClick={() => setAgentMode(true)}
+                      className="h-9"
+                    >
+                      <Bot className="h-4 w-4 mr-2" />
+                      AI Agent
+                    </Button>
+                  </div>
+
+                  <div className="h-6 w-px bg-gray-300 dark:bg-gray-600"></div>
+
                   <Button
                     variant="outline"
                     onClick={handleLoadSampleData}
@@ -453,17 +481,25 @@ export function FMECAContent({
               </div>
             </div>
 
-            {/* FMECA Table - Takes remaining height */}
+            {/* FMECA Content - Table or Agent */}
             <div className="flex-1 min-h-0 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-              <TanStackFMECATable
-                data={fmecaData}
-                columns={columns.map((col) => ({
-                  accessorKey: col,
-                  header: col,
-                }))}
-                onDataChange={setFmecaData}
-                stagedChanges={stagedChanges}
-              />
+              {agentMode ? (
+                <FMECAAgentChat
+                  fmecaData={fmecaData}
+                  onDataChange={setFmecaData}
+                  projectId={currentProject?.id || ""}
+                />
+              ) : (
+                <TanStackFMECATable
+                  data={fmecaData}
+                  columns={columns.map((col) => ({
+                    accessorKey: col,
+                    header: col,
+                  }))}
+                  onDataChange={setFmecaData}
+                  stagedChanges={stagedChanges}
+                />
+              )}
             </div>
           </>
         ) : (
@@ -486,6 +522,30 @@ export function FMECAContent({
                 </div>
 
                 <div className="flex items-center gap-3">
+                  {/* Mode Toggle */}
+                  <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+                    <Button
+                      variant={!agentMode ? "default" : "ghost"}
+                      size="sm"
+                      onClick={() => setAgentMode(false)}
+                      className="h-9"
+                    >
+                      <TableProperties className="h-4 w-4 mr-2" />
+                      Table View
+                    </Button>
+                    <Button
+                      variant={agentMode ? "default" : "ghost"}
+                      size="sm"
+                      onClick={() => setAgentMode(true)}
+                      className="h-9"
+                    >
+                      <Bot className="h-4 w-4 mr-2" />
+                      AI Agent
+                    </Button>
+                  </div>
+
+                  <div className="h-6 w-px bg-gray-300 dark:bg-gray-600"></div>
+
                   <Button
                     variant="outline"
                     onClick={handleLoadSampleData}
@@ -515,13 +575,21 @@ export function FMECAContent({
               </div>
             </div>
 
-            {/* Upload Zone */}
+            {/* Content Area - Upload Zone or Agent Chat */}
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-              <FileUploadZone
-                onFileUpload={handleFileUpload}
-                onLoadSampleData={handleLoadSampleData}
-                isProcessing={isProcessing}
-              />
+              {agentMode ? (
+                <FMECAAgentChat
+                  fmecaData={fmecaData}
+                  onDataChange={setFmecaData}
+                  projectId={currentProject?.id || ""}
+                />
+              ) : (
+                <FileUploadZone
+                  onFileUpload={handleFileUpload}
+                  onLoadSampleData={handleLoadSampleData}
+                  isProcessing={isProcessing}
+                />
+              )}
             </div>
           </>
         )}
