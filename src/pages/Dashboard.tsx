@@ -3,8 +3,9 @@ import { MainContent } from "@/components/MainContent";
 import { AIChatPanel } from "@/components/AIChatPanel";
 import DashboardHeader from "@/components/DashboardHeader";
 import { AppSidebar } from "@/components/AppSidebar";
-import { ProjectProvider } from "@/contexts/ProjectContext";
+import { ProjectProvider, useProject } from "@/contexts/ProjectContext";
 import { WelcomeModal } from "@/components/WelcomeModal";
+import { saveFMECAData } from "@/integrations/supabase/maintenance-tasks";
 
 // Define a type for the staged changes for clarity
 export interface StagedChanges {
@@ -22,12 +23,15 @@ const CHAT_WIDTH = 380;
 const SIDEBAR_COLLAPSED = 64; // px
 const SIDEBAR_EXPANDED = 224; // px (matches w-56)
 
-const Dashboard = () => {
+const DashboardContent = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fmecaData, setFmecaData] = useState<any[]>([]);
   const [columns, setColumns] = useState<string[]>([]);
   const [selectedNav, setSelectedNav] = useState("dashboard");
   const [chatPanelWidth, setChatPanelWidth] = useState(380);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  const { currentProject } = useProject();
 
   // State to manage the new highlight-based preview feature
   const [previousFmecaData, setPreviousFmecaData] = useState<any[] | null>(
@@ -41,7 +45,89 @@ const Dashboard = () => {
   );
 
   const handleDataUpdate = (updatedData: any[]) => {
-    setFmecaData(updatedData);
+    // Trigger a refresh of FMECA data from the database
+    setRefreshTrigger((prev) => prev + 1);
+  };
+
+  // Function to calculate the diff between original and updated data
+  const calculateDataDiff = (
+    originalData: any[],
+    updatedData: any[]
+  ): StagedChanges => {
+    const added: any[] = [];
+    const modified: {
+      rowIndex: number;
+      columnId: string;
+      oldValue: any;
+      newValue: any;
+    }[] = [];
+    const deleted: any[] = [];
+
+    // Create a more robust matching function
+    const findMatchingRow = (targetRow: any, searchArray: any[]) => {
+      return searchArray.findIndex((row) => {
+        // First try exact match
+        if (JSON.stringify(row) === JSON.stringify(targetRow)) {
+          return true;
+        }
+
+        // Then try key field matching with all three fields
+        const keyFields = ["FLOC", "Asset Type", "Component"];
+        const allKeyFieldsMatch = keyFields.every(
+          (field) =>
+            row[field] && targetRow[field] && row[field] === targetRow[field]
+        );
+
+        return allKeyFieldsMatch;
+      });
+    };
+
+    // Find added rows (exist in updated but not in original)
+    updatedData.forEach((updatedRow) => {
+      const matchIndex = findMatchingRow(updatedRow, originalData);
+      if (matchIndex === -1) {
+        // This is a completely new row
+        added.push(updatedRow);
+      }
+    });
+
+    // Find deleted rows (exist in original but not in updated)
+    originalData.forEach((originalRow) => {
+      const matchIndex = findMatchingRow(originalRow, updatedData);
+      if (matchIndex === -1) {
+        // This row was deleted
+        deleted.push(originalRow);
+      }
+    });
+
+    // Find modified cells (only check rows that exist in both)
+    originalData.forEach((originalRow, originalIndex) => {
+      const updatedRowIndex = findMatchingRow(originalRow, updatedData);
+
+      if (updatedRowIndex !== -1) {
+        const updatedRow = updatedData[updatedRowIndex];
+
+        // Only check for modifications if it's not an exact match
+        if (JSON.stringify(originalRow) !== JSON.stringify(updatedRow)) {
+          Object.keys(originalRow).forEach((columnId) => {
+            if (originalRow[columnId] !== updatedRow[columnId]) {
+              modified.push({
+                rowIndex: originalIndex,
+                columnId,
+                oldValue: originalRow[columnId],
+                newValue: updatedRow[columnId],
+              });
+            }
+          });
+        }
+      }
+    });
+
+    return {
+      added,
+      modified,
+      deleted,
+    };
   };
 
   // Function to stage changes from the AI, saving the previous state
@@ -104,22 +190,32 @@ const Dashboard = () => {
   };
 
   // Function to accept the staged changes
-  const handleAcceptChanges = () => {
-    if (!stagedChanges || !proposedFmecaData) return;
+  const handleAcceptChanges = async () => {
+    if (!stagedChanges || !proposedFmecaData || !currentProject) return;
 
-    // Clean up any internal markers from the proposed data
-    const cleanedData = proposedFmecaData.map((row) => {
-      const { __isAddedRow, __hasModifiedCells, ...cleanRow } = row;
-      return cleanRow;
-    });
+    try {
+      // Clean up any internal markers from the proposed data
+      const cleanedData = proposedFmecaData.map((row) => {
+        const { __isAddedRow, __hasModifiedCells, ...cleanRow } = row;
+        return cleanRow;
+      });
 
-    // Apply the proposed changes
-    setFmecaData(cleanedData);
+      // Save to database first
+      await saveFMECAData(currentProject.id, cleanedData, columns);
 
-    // Clear the staging state
-    setStagedChanges(null);
-    setPreviousFmecaData(null);
-    setProposedFmecaData(null);
+      // Apply the proposed changes to local state
+      setFmecaData(cleanedData);
+
+      // Clear the staging state
+      setStagedChanges(null);
+      setPreviousFmecaData(null);
+      setProposedFmecaData(null);
+
+      console.log("Changes accepted and saved to database successfully");
+    } catch (error) {
+      console.error("Failed to save changes to database:", error);
+      throw error; // Re-throw so the chat panel can handle the error
+    }
   };
 
   // Function to revert to the previous state
@@ -135,61 +231,68 @@ const Dashboard = () => {
   };
 
   return (
-    <ProjectProvider>
-      <div className="min-h-screen bg-background">
-        <DashboardHeader />
-        <WelcomeModal />
-        <div className="fixed top-16 left-0 right-0 bottom-0 w-full h-[calc(100vh-4rem)]">
-          {/* Layout: Fixed positioning for consistent spacing regardless of zoom */}
+    <div className="min-h-screen bg-background">
+      <DashboardHeader />
+      <WelcomeModal />
+      <div className="fixed top-16 left-0 right-0 bottom-0 w-full h-[calc(100vh-4rem)]">
+        {/* Layout: Fixed positioning for consistent spacing regardless of zoom */}
 
-          {/* Sidebar - Fixed position on the left */}
-          <div
-            className="fixed left-0 top-16 bottom-0 z-20"
-            style={{ width: SIDEBAR_COLLAPSED }}
-          >
-            <AppSidebar selected={selectedNav} onSelect={setSelectedNav} />
-          </div>
+        {/* Sidebar - Fixed position on the left */}
+        <div
+          className="fixed left-0 top-16 bottom-0 z-20"
+          style={{ width: SIDEBAR_COLLAPSED }}
+        >
+          <AppSidebar selected={selectedNav} onSelect={setSelectedNav} />
+        </div>
 
-          {/* Main content - Fixed position with calculated width */}
-          <div
-            className="fixed top-16 bottom-0 z-10 overflow-x-auto bg-background"
-            style={{
-              left: SIDEBAR_COLLAPSED,
-              width: `calc(100vw - ${SIDEBAR_COLLAPSED}px - ${chatPanelWidth}px)`,
-            }}
-          >
-            <MainContent
-              className="h-full flex flex-col min-w-full"
-              selectedNav={selectedNav}
-              selectedFile={selectedFile}
-              setSelectedFile={setSelectedFile}
-              fmecaData={getPreviewData()}
-              setFmecaData={setFmecaData}
-              columns={columns}
-              setColumns={setColumns}
-              stagedChanges={stagedChanges}
-            />
-          </div>
+        {/* Main content - Fixed position with calculated width */}
+        <div
+          className="fixed top-16 bottom-0 z-10 overflow-x-auto bg-background"
+          style={{
+            left: SIDEBAR_COLLAPSED,
+            width: `calc(100vw - ${SIDEBAR_COLLAPSED}px - ${chatPanelWidth}px)`,
+          }}
+        >
+          <MainContent
+            className="h-full flex flex-col min-w-full"
+            selectedNav={selectedNav}
+            selectedFile={selectedFile}
+            setSelectedFile={setSelectedFile}
+            fmecaData={getPreviewData()}
+            setFmecaData={setFmecaData}
+            columns={columns}
+            setColumns={setColumns}
+            stagedChanges={stagedChanges}
+            refreshTrigger={refreshTrigger}
+          />
+        </div>
 
-          {/* AI Chat Panel - Fixed position on the right */}
-          <div className="fixed right-0 top-16 bottom-0 z-30">
-            <AIChatPanel
-              className="h-full"
-              fmecaData={fmecaData}
-              columns={columns}
-              onDataUpdate={handleDataUpdate}
-              onStageChanges={handleStageChanges}
-              onAcceptChanges={handleAcceptChanges}
-              onRevertChanges={handleRevertChanges}
-              hasStagedChanges={!!stagedChanges}
-              onResize={handleChatPanelResize}
-              minWidth={320}
-              maxWidth={600}
-              initialWidth={380}
-            />
-          </div>
+        {/* AI Chat Panel - Fixed position on the right */}
+        <div className="fixed right-0 top-16 bottom-0 z-30">
+          <AIChatPanel
+            className="h-full"
+            fmecaData={fmecaData}
+            columns={columns}
+            onDataUpdate={handleDataUpdate}
+            onStageChanges={handleStageChanges}
+            onAcceptChanges={handleAcceptChanges}
+            onRevertChanges={handleRevertChanges}
+            hasStagedChanges={!!stagedChanges}
+            onResize={handleChatPanelResize}
+            minWidth={320}
+            maxWidth={600}
+            initialWidth={380}
+          />
         </div>
       </div>
+    </div>
+  );
+};
+
+const Dashboard = () => {
+  return (
+    <ProjectProvider>
+      <DashboardContent />
     </ProjectProvider>
   );
 };

@@ -17,6 +17,7 @@ interface MainContentProps {
   columns: string[];
   setColumns: (columns: string[]) => void;
   stagedChanges: StagedChanges | null;
+  refreshTrigger?: number;
 }
 
 export function MainContent({
@@ -29,6 +30,7 @@ export function MainContent({
   columns,
   setColumns,
   stagedChanges,
+  refreshTrigger,
 }: MainContentProps) {
   return (
     <div className={cn("flex flex-col bg-background h-full", className)}>
@@ -53,6 +55,7 @@ export function MainContent({
           columns={columns}
           setColumns={setColumns}
           stagedChanges={stagedChanges}
+          refreshTrigger={refreshTrigger}
         />
       )}
       {selectedNav === "tasks" && (

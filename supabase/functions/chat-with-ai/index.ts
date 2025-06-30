@@ -54,6 +54,7 @@ serve(async (req) => {
       projectContext,
       documentContext,
       sapIntegration = false,
+      metadata,
     } = body;
 
     if (!query) {
@@ -73,13 +74,49 @@ Answer questions about FMECA data in plain text. DO NOT output JSON.`;
       }
 
       // Optimized edit mode prompt for faster processing
-      return `${commonInstructions}
+      const isAddOperation =
+        query.toLowerCase().includes("add") &&
+        (query.toLowerCase().includes("new") ||
+          query.toLowerCase().includes("row") ||
+          query.toLowerCase().includes("pump") ||
+          query.toLowerCase().includes("motor") ||
+          query.toLowerCase().includes("failure"));
+
+      const isRemoveOperation =
+        (query.toLowerCase().includes("remove") ||
+          query.toLowerCase().includes("delete")) &&
+        (query.toLowerCase().includes("row") ||
+          query.toLowerCase().includes("pump") ||
+          query.toLowerCase().includes("motor") ||
+          query.toLowerCase().includes("conveyor") ||
+          query.toLowerCase().includes("feeder") ||
+          query.toLowerCase().includes("elevator"));
+
+      if (isAddOperation) {
+        return `${commonInstructions}
+Edit mode for ADD operation: Return JSON with "response" and "newRows" properties.
+- "response": Brief confirmation of what was added (max 20 words)
+- "newRows": Array containing ONLY the new row(s) to be added, with ALL columns: ${columns?.join(
+          ", "
+        )}
+Do NOT return the complete dataset. Only return the new rows that should be added.`;
+      } else if (isRemoveOperation) {
+        return `${commonInstructions}
+Edit mode for REMOVE operation: Return JSON with "response" and "rowsToRemove" properties.
+- "response": Brief confirmation of what was removed (max 20 words)
+- "rowsToRemove": Array containing the COMPLETE row objects that should be removed, with ALL columns: ${columns?.join(
+          ", "
+        )}
+Do NOT return the complete dataset. Only return the exact rows that should be deleted.`;
+      } else {
+        return `${commonInstructions}
 Edit mode: Return JSON with "response" and "updatedData" properties.
 - "response": Brief action summary (max 20 words)
 - "updatedData": Complete modified dataset array with ALL columns: ${columns?.join(
-        ", "
-      )}
-For additions: Add new rows with appropriate values for all columns. Always return the complete dataset with all original columns filled.`;
+          ", "
+        )}
+For modifications/deletions: Return the complete updated dataset.`;
+      }
     };
 
     const systemPrompt = getSystemPrompt();
@@ -148,7 +185,21 @@ For additions: Add new rows with appropriate values for all columns. Always retu
       }
 
       if (lowerQuery.includes("remove") || lowerQuery.includes("delete")) {
-        // For deletions, send smaller context as we just need to identify rows
+        // For deletions, send relevant rows that might match the deletion criteria
+        const targetEquipment = extractEquipmentType(query);
+        if (targetEquipment) {
+          const relevantRows = fmecaData.filter(
+            (row) =>
+              row["Asset Type"]?.toLowerCase().includes(targetEquipment) ||
+              row["Component"]?.toLowerCase().includes(targetEquipment) ||
+              row["FLOC"]?.toLowerCase().includes(targetEquipment)
+          );
+          // Send relevant rows + a few examples for context
+          return relevantRows.length > 0
+            ? [...relevantRows.slice(0, 15), ...fmecaData.slice(0, 3)]
+            : fmecaData.slice(0, 10);
+        }
+        // For general deletions, send smaller context as we just need to identify rows
         return fmecaData.slice(0, 10);
       }
 
@@ -177,23 +228,36 @@ For additions: Add new rows with appropriate values for all columns. Always retu
       return "";
     }
 
-    // Smart context selection for large datasets
-    let compressedData = getSmartContext(query, fmecaData, chatMode);
+    // Use optimized context if provided, otherwise fall back to smart context
+    let compressedData;
+    let contextInfo = "";
+
+    if (metadata && metadata.strategy) {
+      // Use the pre-optimized context from the client
+      compressedData = fmecaData;
+      contextInfo = `Context: ${metadata.strategy}. Total dataset: ${metadata.totalRows} rows. `;
+    } else {
+      // Fallback to local smart context selection
+      compressedData = getSmartContext(query, fmecaData, chatMode);
+      contextInfo = `Using ${compressedData.length} of ${
+        fmecaData?.length || 0
+      } rows for context. `;
+    }
 
     const dataContext = JSON.stringify(compressedData);
 
     // Log OpenAI payload
     const openAiPayload: any = {
-      model: isSimpleAddition(query) ? "gpt-3.5-turbo" : "gpt-4o-mini", // Use faster model for simple operations
+      model: "gpt-4o-mini", // Using most cost-effective model with best performance
       messages: [
         { role: "system", content: systemPrompt },
         {
           role: "user",
-          content: `FMECA data (${compressedData.length} rows):\n${dataContext}\n\nRequest: "${query}"`,
+          content: `${contextInfo}FMECA data (${compressedData.length} rows):\n${dataContext}\n\nRequest: "${query}"`,
         },
       ],
       temperature: 0, // Faster processing with deterministic output
-      max_tokens: isSimpleAddition(query) ? 4000 : 6000, // Reduced from 6000/8000
+      max_tokens: 6000, // Optimal for gpt-4o-mini
       stream: false, // Disable streaming for now to focus on core optimizations
     };
     if (useJsonMode) {
@@ -219,12 +283,64 @@ For additions: Add new rows with appropriate values for all columns. Always retu
       try {
         const parsedResponse = JSON.parse(responseContent);
 
-        // Additional validation to ensure we have complete data
+        // Check if this is an add operation (returns newRows) or other operation (returns updatedData)
+        const hasNewRows =
+          parsedResponse.newRows && Array.isArray(parsedResponse.newRows);
+        const hasUpdatedData =
+          parsedResponse.updatedData &&
+          Array.isArray(parsedResponse.updatedData);
+
+        // Log the parsed response for debugging
+        console.log(
+          "Parsed AI response:",
+          JSON.stringify(parsedResponse, null, 2)
+        );
+
+        // Check if this is a remove operation (returns rowsToRemove)
+        const hasRowsToRemove =
+          parsedResponse.rowsToRemove &&
+          Array.isArray(parsedResponse.rowsToRemove);
+
+        // For add operations, we expect newRows
         if (
-          !parsedResponse.updatedData ||
-          !Array.isArray(parsedResponse.updatedData)
+          query.toLowerCase().includes("add") &&
+          query.toLowerCase().includes("new")
         ) {
-          throw new Error("Response missing or invalid updatedData array");
+          if (!hasNewRows) {
+            console.log(
+              "Add operation detected but no newRows found. Response keys:",
+              Object.keys(parsedResponse)
+            );
+            // If it's an add operation but no newRows, treat as an error for now
+            throw new Error(
+              "Add operation response missing or invalid newRows array. Response: " +
+                JSON.stringify(parsedResponse)
+            );
+          }
+        }
+        // For remove operations, we expect rowsToRemove
+        else if (
+          (query.toLowerCase().includes("remove") ||
+            query.toLowerCase().includes("delete")) &&
+          (query.toLowerCase().includes("row") ||
+            query.toLowerCase().includes("pump") ||
+            query.toLowerCase().includes("motor") ||
+            query.toLowerCase().includes("conveyor"))
+        ) {
+          if (!hasRowsToRemove) {
+            console.log(
+              "Remove operation detected but no rowsToRemove found. Response keys:",
+              Object.keys(parsedResponse)
+            );
+            throw new Error(
+              "Remove operation response missing or invalid rowsToRemove array. Response: " +
+                JSON.stringify(parsedResponse)
+            );
+          }
+        }
+        // For other operations, we expect updatedData or just a response
+        else if (!hasUpdatedData && !parsedResponse.response) {
+          throw new Error("Response missing valid data or response");
         }
 
         finalResponse = responseContent;

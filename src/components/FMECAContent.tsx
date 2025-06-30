@@ -1,22 +1,13 @@
 import { useState, useCallback, useEffect } from "react";
-import {
-  Upload,
-  Download,
-  Save,
-  FileSpreadsheet,
-  Shield,
-  Table,
-  Bot,
-  TableProperties,
-} from "lucide-react";
+import { Upload, Download, Save, FileSpreadsheet, Table } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TanStackFMECATable } from "./TanStackFMECATable";
 import { FileUploadZone } from "./FileUploadZone";
-import { FMECAAgentChat } from "./FMECAAgentChat";
+
 import { toast } from "@/components/ui/sonner";
 import * as XLSX from "xlsx";
-import { createSampleFMECAFile } from "@/utils/sampleFMECAData";
+import { sampleFMECAData } from "@/utils/sampleFMECAData";
 import { StagedChanges } from "@/pages/Dashboard";
 import { cn } from "@/lib/utils";
 import { useProject } from "@/contexts/ProjectContext";
@@ -34,6 +25,7 @@ interface FMECAContentProps {
   columns: string[];
   setColumns: (columns: string[]) => void;
   stagedChanges: StagedChanges | null;
+  refreshTrigger?: number;
 }
 
 export function FMECAContent({
@@ -45,12 +37,13 @@ export function FMECAContent({
   columns,
   setColumns,
   stagedChanges,
+  refreshTrigger,
 }: FMECAContentProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [loadedProjectId, setLoadedProjectId] = useState<string | null>(null);
-  const [agentMode, setAgentMode] = useState(false);
+
   const { currentProject } = useProject();
 
   // Load FMECA data from database when project changes (but only if data is empty)
@@ -73,6 +66,14 @@ export function FMECAContent({
     setColumns,
     setSelectedFile,
   ]);
+
+  // Reload data when refreshTrigger changes (triggered by AI agent updates)
+  useEffect(() => {
+    if (refreshTrigger && refreshTrigger > 0 && currentProject) {
+      console.log("Refreshing FMECA data due to AI agent update");
+      loadFMECADataFromDatabase();
+    }
+  }, [refreshTrigger, currentProject]);
 
   const loadFMECADataFromDatabase = async () => {
     if (!currentProject) return;
@@ -204,8 +205,12 @@ export function FMECAContent({
             }
           }
 
-          console.log("Parsed data sample:", parsedData.slice(0, 3));
-          console.log("Total parsed rows:", parsedData.length);
+          console.log("Final parsed data sample:", parsedData[0]);
+          console.log("Final parsed data count:", parsedData.length);
+
+          if (parsedData.length === 0) {
+            throw new Error("No valid data rows found in the Excel file");
+          }
 
           resolve({ data: parsedData, columns: headers });
         } catch (error) {
@@ -215,7 +220,7 @@ export function FMECAContent({
       };
 
       reader.onerror = () => {
-        reject(new Error("Failed to read file"));
+        reject(new Error("Failed to read the file"));
       };
 
       reader.readAsArrayBuffer(file);
@@ -224,169 +229,139 @@ export function FMECAContent({
 
   const handleFileUpload = useCallback(
     async (file: File) => {
-      console.log("File upload started:", file.name, file.size, file.type);
+      if (!currentProject) {
+        toast("Please select a project first", {
+          description: "You need to select a project before uploading data.",
+        });
+        return;
+      }
 
       try {
         setIsProcessing(true);
         setSelectedFile(file);
 
-        // Add file validation
-        if (!file) {
-          throw new Error("No file provided");
-        }
+        console.log("Processing file:", file.name);
 
-        if (file.size > 10 * 1024 * 1024) {
-          // 10MB limit
-          throw new Error(
-            "File too large. Please upload a file smaller than 10MB."
-          );
-        }
+        const { data, columns: parsedColumns } = await parseExcelFile(file);
 
-        const validTypes = [
-          "application/vnd.ms-excel",
-          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-          "application/vnd.ms-excel.sheet.macroEnabled.12",
-        ];
+        console.log("Setting parsed data:", {
+          dataLength: data.length,
+          columnsLength: parsedColumns.length,
+          sampleColumns: parsedColumns.slice(0, 5),
+        });
 
-        const hasValidExtension =
-          file.name.toLowerCase().endsWith(".xlsx") ||
-          file.name.toLowerCase().endsWith(".xls");
+        setFmecaData(data);
+        setColumns(parsedColumns);
 
-        if (!validTypes.includes(file.type) && !hasValidExtension) {
-          throw new Error(
-            "Invalid file type. Please upload an Excel file (.xlsx or .xls)"
-          );
-        }
+        // Auto-save to database after successful parsing
+        await saveFMECADataToDatabase(data);
 
-        console.log("File validation passed");
-
-        // Parse the actual Excel file
-        const { data: parsedData, columns: excelColumns } =
-          await parseExcelFile(file);
-
-        console.log("Excel parsing completed:", parsedData.length, "rows");
-        console.log("Excel columns:", excelColumns);
-
-        setFmecaData(parsedData);
-        setColumns(excelColumns);
-
-        // Auto-save to database if we have a current project
-        if (currentProject) {
-          console.log(
-            "Current project exists, attempting to save:",
-            currentProject.id
-          );
-          console.log("Data to save:", parsedData.length, "rows");
-          try {
-            // Pass the columns directly to ensure they are saved in the correct order
-            await saveFMECAData(currentProject.id, parsedData, excelColumns);
-            console.log("Successfully saved FMECA data to database");
-            toast("FMECA data saved to database!", {
-              description: `Saved ${parsedData.length} entries for project ${currentProject.name}`,
-            });
-          } catch (saveError) {
-            console.error("Failed to save FMECA data to database:", saveError);
-            toast("Failed to save FMECA data", {
-              description: `Error: ${
-                saveError instanceof Error ? saveError.message : "Unknown error"
-              }`,
-            });
-          }
-        } else {
-          console.log("No current project selected, skipping auto-save");
-        }
-
-        toast("File processed successfully!", {
-          description: `Loaded ${parsedData.length} FMECA entries with ${excelColumns.length} columns from ${file.name}`,
+        toast("File uploaded and processed successfully!", {
+          description: `Loaded ${data.length} entries with ${parsedColumns.length} columns`,
         });
       } catch (error) {
-        console.error("File upload error:", error);
-        const errorMessage =
-          error instanceof Error ? error.message : "Failed to process file";
-        // toast(`Upload failed: ${errorMessage}`, {
-        //   description:
-        //     "Please try again or contact support if the issue persists.",
-        // });
+        console.error("Error processing file:", error);
+        toast("Failed to process file", {
+          description:
+            error instanceof Error ? error.message : "Unknown error occurred",
+        });
         setSelectedFile(null);
-        setFmecaData([]);
-        setColumns([]);
       } finally {
         setIsProcessing(false);
       }
     },
-    [
-      setSelectedFile,
-      setFmecaData,
-      setColumns,
-      currentProject,
-      saveFMECADataToDatabase,
-      parseExcelFile,
-    ]
+    [currentProject, setSelectedFile, setFmecaData, setColumns]
   );
+
+  const handleLoadSampleData = useCallback(async () => {
+    if (!currentProject) {
+      toast("Please select a project first", {
+        description: "You need to select a project before loading sample data.",
+      });
+      return;
+    }
+
+    try {
+      setIsProcessing(true);
+
+      // Use the raw sample data directly
+      const sampleColumns = Object.keys(sampleFMECAData[0]);
+
+      console.log("Loading sample data:", {
+        dataLength: sampleFMECAData.length,
+        columnsLength: sampleColumns.length,
+      });
+
+      setFmecaData(sampleFMECAData);
+      setColumns(sampleColumns);
+      setSelectedFile(null);
+
+      // Auto-save sample data to database
+      await saveFMECADataToDatabase(sampleFMECAData);
+
+      toast("Sample FMECA data loaded successfully!", {
+        description: `Loaded ${sampleFMECAData.length} sample entries`,
+      });
+    } catch (error) {
+      console.error("Error loading sample data:", error);
+      toast("Failed to load sample data", {
+        description: "Please try again",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [currentProject, setFmecaData, setColumns, setSelectedFile]);
 
   const handleExport = useCallback(() => {
     if (!fmecaData.length || !columns.length) {
-      // toast("No data to export", {
-      //   description: "Please upload and process a file first.",
-      // });
+      toast("No data to export", {
+        description: "Please load or upload FMECA data first",
+      });
       return;
     }
 
     try {
       // Create a new workbook
-      const wb = XLSX.utils.book_new();
+      const workbook = XLSX.utils.book_new();
 
       // Convert data to worksheet format
-      const ws = XLSX.utils.json_to_sheet(fmecaData, {
-        header: columns,
-        skipHeader: false,
-      });
+      const worksheet = XLSX.utils.json_to_sheet(fmecaData);
 
       // Add the worksheet to workbook
-      XLSX.utils.book_append_sheet(wb, ws, "FMECA Data");
+      XLSX.utils.book_append_sheet(workbook, worksheet, "FMECA Data");
 
-      // Generate file name with timestamp
-      const timestamp = new Date().toISOString().split("T")[0];
-      const fileName = `FMECA_Export_${timestamp}.xlsx`;
+      // Generate filename
+      const timestamp = new Date()
+        .toISOString()
+        .slice(0, 19)
+        .replace(/:/g, "-");
+      const filename = `FMECA_Export_${timestamp}.xlsx`;
 
       // Write the file
-      XLSX.writeFile(wb, fileName);
+      XLSX.writeFile(workbook, filename);
 
-      // toast("Export successful!", {
-      //   description: `Downloaded ${fileName} with ${fmecaData.length} rows`,
-      // });
+      toast("Data exported successfully!", {
+        description: `File saved as ${filename}`,
+      });
     } catch (error) {
-      console.error("Export error:", error);
-      // toast("Export failed", {
-      //   description:
-      //     "There was an error exporting your data. Please try again.",
-      // });
-    }
-  }, [fmecaData, columns]);
-
-  const handleLoadSampleData = useCallback(async () => {
-    try {
-      const sampleFile = createSampleFMECAFile();
-      await handleFileUpload(sampleFile);
-    } catch (error) {
-      console.error("Failed to load sample data:", error);
-      toast("Failed to load sample data", {
-        description: "There was an error loading the sample data.",
+      console.error("Error exporting data:", error);
+      toast("Failed to export data", {
+        description: "Please try again",
       });
     }
-  }, [handleFileUpload]);
+  }, [fmecaData, columns]);
 
   const handleManualSave = async () => {
     if (!currentProject) {
       toast("No project selected", {
-        description: "Please select a project before saving.",
+        description: "Please select a project first.",
       });
       return;
     }
 
-    if (fmecaData.length === 0) {
+    if (!fmecaData.length) {
       toast("No data to save", {
-        description: "Please upload FMECA data first.",
+        description: "Please load or upload FMECA data first.",
       });
       return;
     }
@@ -394,10 +369,25 @@ export function FMECAContent({
     await saveFMECADataToDatabase(fmecaData);
   };
 
+  if (isLoading) {
+    return (
+      <div className={cn("flex flex-col h-full", className)}>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600 dark:text-gray-400">
+              Loading FMECA data...
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="h-screen overflow-hidden bg-gray-50/50 dark:bg-gray-900/50">
-      <div className="h-full flex flex-col w-full px-4 py-8 sm:px-6 lg:px-8">
-        {fmecaData.length > 0 ? (
+    <div className={cn("flex flex-col h-full p-6", className)}>
+      <div className="flex-1 flex flex-col min-h-0">
+        {fmecaData.length > 0 && columns.length > 0 ? (
           <>
             {/* Header Section */}
             <div className="mb-8 flex-shrink-0">
@@ -428,30 +418,6 @@ export function FMECAContent({
                 </div>
 
                 <div className="flex items-center gap-3">
-                  {/* Mode Toggle */}
-                  <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
-                    <Button
-                      variant={!agentMode ? "default" : "ghost"}
-                      size="sm"
-                      onClick={() => setAgentMode(false)}
-                      className="h-9"
-                    >
-                      <TableProperties className="h-4 w-4 mr-2" />
-                      Table View
-                    </Button>
-                    <Button
-                      variant={agentMode ? "default" : "ghost"}
-                      size="sm"
-                      onClick={() => setAgentMode(true)}
-                      className="h-9"
-                    >
-                      <Bot className="h-4 w-4 mr-2" />
-                      AI Agent
-                    </Button>
-                  </div>
-
-                  <div className="h-6 w-px bg-gray-300 dark:bg-gray-600"></div>
-
                   <Button
                     variant="outline"
                     onClick={handleLoadSampleData}
@@ -481,25 +447,17 @@ export function FMECAContent({
               </div>
             </div>
 
-            {/* FMECA Content - Table or Agent */}
+            {/* FMECA Table */}
             <div className="flex-1 min-h-0 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-              {agentMode ? (
-                <FMECAAgentChat
-                  fmecaData={fmecaData}
-                  onDataChange={setFmecaData}
-                  projectId={currentProject?.id || ""}
-                />
-              ) : (
-                <TanStackFMECATable
-                  data={fmecaData}
-                  columns={columns.map((col) => ({
-                    accessorKey: col,
-                    header: col,
-                  }))}
-                  onDataChange={setFmecaData}
-                  stagedChanges={stagedChanges}
-                />
-              )}
+              <TanStackFMECATable
+                data={fmecaData}
+                columns={columns.map((col) => ({
+                  accessorKey: col,
+                  header: col,
+                }))}
+                onDataChange={setFmecaData}
+                stagedChanges={stagedChanges}
+              />
             </div>
           </>
         ) : (
@@ -522,30 +480,6 @@ export function FMECAContent({
                 </div>
 
                 <div className="flex items-center gap-3">
-                  {/* Mode Toggle */}
-                  <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
-                    <Button
-                      variant={!agentMode ? "default" : "ghost"}
-                      size="sm"
-                      onClick={() => setAgentMode(false)}
-                      className="h-9"
-                    >
-                      <TableProperties className="h-4 w-4 mr-2" />
-                      Table View
-                    </Button>
-                    <Button
-                      variant={agentMode ? "default" : "ghost"}
-                      size="sm"
-                      onClick={() => setAgentMode(true)}
-                      className="h-9"
-                    >
-                      <Bot className="h-4 w-4 mr-2" />
-                      AI Agent
-                    </Button>
-                  </div>
-
-                  <div className="h-6 w-px bg-gray-300 dark:bg-gray-600"></div>
-
                   <Button
                     variant="outline"
                     onClick={handleLoadSampleData}
@@ -575,21 +509,13 @@ export function FMECAContent({
               </div>
             </div>
 
-            {/* Content Area - Upload Zone or Agent Chat */}
+            {/* Upload Zone */}
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-              {agentMode ? (
-                <FMECAAgentChat
-                  fmecaData={fmecaData}
-                  onDataChange={setFmecaData}
-                  projectId={currentProject?.id || ""}
-                />
-              ) : (
-                <FileUploadZone
-                  onFileUpload={handleFileUpload}
-                  onLoadSampleData={handleLoadSampleData}
-                  isProcessing={isProcessing}
-                />
-              )}
+              <FileUploadZone
+                onFileUpload={handleFileUpload}
+                onLoadSampleData={handleLoadSampleData}
+                isProcessing={isProcessing}
+              />
             </div>
           </>
         )}
