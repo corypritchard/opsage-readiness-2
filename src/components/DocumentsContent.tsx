@@ -28,6 +28,7 @@ import {
   FileAudio,
   FileVideo,
   Book,
+  Plus,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -529,6 +530,27 @@ export function DocumentsContent({ className }: { className?: string }) {
     return fileType ? fileType.type : "Other";
   };
 
+  const getFileIconBgColor = (type: string) => {
+    const t = type.toLowerCase();
+    if (t.includes("pdf")) return "bg-red-500";
+    if (t.includes("excel") || t.includes("csv")) return "bg-green-500";
+    if (t.includes("word") || t.includes("text")) return "bg-blue-500";
+    if (
+      t.includes("image") ||
+      t.includes("png") ||
+      t.includes("jpg") ||
+      t.includes("jpeg") ||
+      t.includes("gif") ||
+      t.includes("webp")
+    )
+      return "bg-purple-500";
+    if (t.includes("archive") || t.includes("zip")) return "bg-yellow-500";
+    if (t.includes("audio")) return "bg-pink-500";
+    if (t.includes("video")) return "bg-indigo-500";
+    if (t.includes("json") || t.includes("code")) return "bg-gray-600";
+    return "bg-gray-400";
+  };
+
   return (
     <div
       className={cn(
@@ -665,12 +687,13 @@ export function DocumentsContent({ className }: { className?: string }) {
                                     key={index}
                                     className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
                                   >
-                                    <FileIcon
-                                      className={cn(
-                                        "h-5 w-5",
-                                        fileType?.color || "text-gray-500"
-                                      )}
-                                    />
+                                    <div
+                                      className={`flex h-10 w-10 items-center justify-center rounded-lg ${getFileIconBgColor(
+                                        file.type
+                                      )}`}
+                                    >
+                                      <FileIcon className="h-5 w-5 text-white" />
+                                    </div>
                                     <div className="flex-1 min-w-0">
                                       <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                                         {file.name}
@@ -851,7 +874,11 @@ export function DocumentsContent({ className }: { className?: string }) {
                         >
                           <td className="px-6 py-4">
                             <div className="flex items-start gap-3">
-                              <div className="flex h-10 w-10 items-center justify-center rounded-lg icon-primary">
+                              <div
+                                className={`flex h-10 w-10 items-center justify-center rounded-lg ${getFileIconBgColor(
+                                  doc.type
+                                )}`}
+                              >
                                 <FileIcon className="h-5 w-5 text-white" />
                               </div>
                               <div className="min-w-0 flex-1">
@@ -1061,12 +1088,13 @@ export function DocumentsContent({ className }: { className?: string }) {
                                     key={index}
                                     className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
                                   >
-                                    <FileIcon
-                                      className={cn(
-                                        "h-5 w-5",
-                                        fileType?.color || "text-gray-500"
-                                      )}
-                                    />
+                                    <div
+                                      className={`flex h-10 w-10 items-center justify-center rounded-lg ${getFileIconBgColor(
+                                        file.type
+                                      )}`}
+                                    >
+                                      <FileIcon className="h-5 w-5 text-white" />
+                                    </div>
                                     <div className="flex-1 min-w-0">
                                       <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                                         {file.name}
