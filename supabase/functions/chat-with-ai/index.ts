@@ -82,48 +82,51 @@ serve(async (req) => {
 
       const commonInstructions = `You are Opsage, an engineering assistant for FMECA analysis. ${tableSchema}`;
 
+      // Helper function to format document context for both ask and edit modes
+      const formatDocumentContext = () => {
+        if (!documentContext || documentContext.length === 0) return "";
+
+        // Group chunks by document name and clean asset context to avoid confusion
+        const documentGroups = documentContext.reduce(
+          (groups: any, chunk: any) => {
+            const docName = chunk.document_name || "Unknown Document";
+            if (!groups[docName]) {
+              groups[docName] = [];
+            }
+
+            // Remove asset context from chunk content to avoid AI confusion
+            // Asset context looks like: [Asset: Name | Type: xxx | FLOC: xxx]\n\n
+            const cleanContent = chunk.content.replace(
+              /^\[Asset:.*?\]\n\n/s,
+              ""
+            );
+            groups[docName].push(cleanContent);
+            return groups;
+          },
+          {}
+        );
+
+        // Format grouped content clearly
+        const documentContent = Object.entries(documentGroups)
+          .map(([docName, chunks]: [string, any]) => {
+            // Find the first chunk in the group to get asset metadata
+            const firstChunk = documentContext.find(
+              (c: any) => c.document_name === docName
+            );
+            const assetName =
+              firstChunk?.metadata?.assetName || "Unknown Asset";
+            const assetType = firstChunk?.metadata?.assetType || "Unknown Type";
+            return `Document: ${docName} (Asset: ${assetName} | Type: ${assetType})\n${(
+              chunks as string[]
+            ).join("\n\n")}`;
+          })
+          .join("\n\n--- Next Document ---\n\n");
+
+        return `\n\nRELEVANT DOCUMENTATION:\n${documentContent}\n\nNote: The above content comes from uploaded documents. Use this information to create accurate and detailed FMECA entries.`;
+      };
+
       if (chatMode === "ask") {
-        let documentSection = "";
-        if (documentContext && documentContext.length > 0) {
-          // Group chunks by document name and clean asset context to avoid confusion
-          const documentGroups = documentContext.reduce(
-            (groups: any, chunk: any) => {
-              const docName = chunk.document_name || "Unknown Document";
-              if (!groups[docName]) {
-                groups[docName] = [];
-              }
-
-              // Remove asset context from chunk content to avoid AI confusion
-              // Asset context looks like: [Asset: Name | Type: xxx | FLOC: xxx]\n\n
-              const cleanContent = chunk.content.replace(
-                /^\[Asset:.*?\]\n\n/s,
-                ""
-              );
-              groups[docName].push(cleanContent);
-              return groups;
-            },
-            {}
-          );
-
-          // Format grouped content clearly
-          const documentContent = Object.entries(documentGroups)
-            .map(([docName, chunks]: [string, any]) => {
-              // Find the first chunk in the group to get asset metadata
-              const firstChunk = documentContext.find(
-                (c: any) => c.document_name === docName
-              );
-              const assetName =
-                firstChunk?.metadata?.assetName || "Unknown Asset";
-              const assetType =
-                firstChunk?.metadata?.assetType || "Unknown Type";
-              return `Document: ${docName} (Asset: ${assetName} | Type: ${assetType})\n${(
-                chunks as string[]
-              ).join("\n\n")}`;
-            })
-            .join("\n\n--- Next Document ---\n\n");
-
-          documentSection = `\n\nRELEVANT DOCUMENTATION:\n${documentContent}\n\nNote: The above content comes from uploaded documents. When referencing information, mention it comes from the relevant document.`;
-        }
+        const documentSection = formatDocumentContext();
 
         return `${commonInstructions}
 Answer questions about FMECA data and equipment based on the provided context. Use information from uploaded documents when available.${documentSection}
@@ -132,6 +135,8 @@ Provide clear, specific answers in plain text. DO NOT output JSON.`;
       }
 
       // Optimized edit mode prompt for faster processing
+      const documentSection = formatDocumentContext();
+
       const isAddOperation =
         query.toLowerCase().includes("add") &&
         (query.toLowerCase().includes("new") ||
@@ -157,6 +162,7 @@ Edit mode for ADD operation: Return JSON with "response" and "newRows" propertie
 - "newRows": Array containing ONLY the new row(s) to be added, with ALL columns: ${columns?.join(
           ", "
         )}
+Use the provided documentation to create accurate and detailed FMECA entries based on the user's request.${documentSection}
 Do NOT return the complete dataset. Only return the new rows that should be added.`;
       } else if (isRemoveOperation) {
         return `${commonInstructions}
@@ -165,6 +171,7 @@ Edit mode for REMOVE operation: Return JSON with "response" and "rowsToRemove" p
 - "rowsToRemove": Array containing the COMPLETE row objects that should be removed, with ALL columns: ${columns?.join(
           ", "
         )}
+Use the provided documentation to identify the correct components to remove.${documentSection}
 Do NOT return the complete dataset. Only return the exact rows that should be deleted.`;
       } else {
         return `${commonInstructions}
@@ -173,6 +180,7 @@ Edit mode: Return JSON with "response" and "updatedData" properties.
 - "updatedData": Complete modified dataset array with ALL columns: ${columns?.join(
           ", "
         )}
+Use the provided documentation to make accurate modifications.${documentSection}
 For modifications/deletions: Return the complete updated dataset.`;
       }
     };

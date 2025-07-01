@@ -71,6 +71,7 @@ export function MaintenanceTasksContent({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const { sendMessage } = useAIChat();
 
@@ -300,6 +301,51 @@ export function MaintenanceTasksContent({
                   {isSaving ? "Saving..." : "Save Tasks"}
                 </Button>
               )}
+
+              <Dialog
+                open={showDeleteDialog}
+                onOpenChange={setShowDeleteDialog}
+              >
+                <DialogTrigger asChild>
+                  <Button variant="destructive" className="h-11 ml-2">
+                    Delete Table
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Delete Entire Table?</DialogTitle>
+                  </DialogHeader>
+                  <div className="py-4">
+                    Are you sure you want to delete all maintenance tasks? This
+                    cannot be undone.
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowDeleteDialog(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      onClick={async () => {
+                        setMaintenanceTasksData([]);
+                        setShowDeleteDialog(false);
+                        if (currentProject) {
+                          await saveMaintenanceTasks(
+                            currentProject.id,
+                            [],
+                            tasksColumns
+                          );
+                        }
+                        toast("Maintenance tasks table deleted and saved.");
+                      }}
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
           </div>
         </div>

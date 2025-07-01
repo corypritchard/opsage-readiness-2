@@ -29,12 +29,13 @@ export const useAIChat = () => {
       try {
         const lastUserMessage = messages[messages.length - 1].content;
 
-        // Perform vector search for document context in ask mode
+        // Perform vector search for document context in both ask and edit modes
         let documentContext: any[] = [];
-        if (chatMode === "ask" && user?.id) {
+        if (user?.id) {
           try {
             console.log("Performing vector search for query:", lastUserMessage);
             console.log("User ID:", user.id);
+            console.log("Chat mode:", chatMode);
             documentContext = await performVectorSearch(
               lastUserMessage,
               user.id,
@@ -57,12 +58,7 @@ export const useAIChat = () => {
             // Continue without document context if vector search fails
           }
         } else {
-          console.log(
-            "Skipping vector search - chatMode:",
-            chatMode,
-            "user ID:",
-            user?.id
-          );
+          console.log("Skipping vector search - user ID:", user?.id);
         }
 
         // Optimize FMECA data sample for faster processing
@@ -149,15 +145,26 @@ export const useAIChat = () => {
 
         const textResponse = data.response;
         let updatedData = data.updatedData;
+        let newRows = data.newRows;
         let diff: StagedChanges | null = null;
         let validation = data.validation;
 
         console.log("Processing AI response:", {
           textResponse,
           hasUpdatedData: !!updatedData,
+          hasNewRows: !!newRows,
           updatedDataType: typeof updatedData,
           updatedDataLength: updatedData?.length,
+          newRowsLength: newRows?.length,
         });
+
+        // Handle newRows format for add operations
+        if (chatMode === "edit" && newRows && Array.isArray(newRows)) {
+          console.log("Processing newRows for add operation...");
+          // For add operations, combine existing data with new rows
+          updatedData = [...(fmecaData || []), ...newRows];
+          console.log("Combined data length:", updatedData.length);
+        }
 
         // Calculate diff only if in edit mode and data is returned
         if (chatMode === "edit" && updatedData) {

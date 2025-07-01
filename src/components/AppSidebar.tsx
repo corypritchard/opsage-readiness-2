@@ -56,6 +56,62 @@ const NAV_ITEMS = [
   },
 ];
 
+// Arc background properties: consistent but randomized
+const sidebarArcs = [
+  {
+    // Top band
+    style: {
+      position: "absolute",
+      top: "0vh",
+      left: "-60px",
+      width: "320px",
+      height: "320px",
+      opacity: 0.8,
+      transform: "rotate(22deg)",
+    },
+    strokeWidth: 18,
+  },
+  {
+    // Upper-middle band
+    style: {
+      position: "absolute",
+      top: "25vh",
+      left: "80px",
+      width: "360px",
+      height: "360px",
+      opacity: 0.8,
+      transform: "rotate(99deg)",
+    },
+    strokeWidth: 20,
+  },
+  {
+    // Lower-middle band
+    style: {
+      position: "absolute",
+      top: "50vh",
+      left: "-40px",
+      width: "384px",
+      height: "384px",
+      opacity: 0.8,
+      transform: "rotate(201deg)",
+    },
+    strokeWidth: 22,
+  },
+  {
+    // Bottom band
+    style: {
+      position: "absolute",
+      top: "75vh",
+      left: "100px",
+      width: "336px",
+      height: "336px",
+      opacity: 0.8,
+      transform: "rotate(277deg)",
+    },
+    strokeWidth: 20,
+  },
+];
+
 export function AppSidebar({
   selected,
   onSelect,
@@ -74,53 +130,29 @@ export function AppSidebar({
       onMouseEnter={() => setExpanded(true)}
       onMouseLeave={() => setExpanded(false)}
     >
-      {/* Background Arcs */}
-      <div className="absolute inset-0 pointer-events-none z-0">
-        <svg
-          className="absolute -top-8 -left-12 w-32 h-32 text-foreground/5"
-          style={{ transform: "rotate(75deg)" }}
-          viewBox="0 0 200 200"
-          fill="none"
-        >
-          <path
-            d="M180,100a80,80 0 1,1 -160,0"
-            stroke="currentColor"
-            strokeWidth="10"
-            strokeLinecap="butt"
-          />
-        </svg>
-        <svg
-          className="absolute bottom-16 -left-8 w-40 h-40 text-foreground/5"
-          style={{ transform: "rotate(-45deg)" }}
-          viewBox="0 0 200 200"
-          fill="none"
-        >
-          <path
-            d="M180,100a80,80 0 1,1 -160,0"
-            stroke="currentColor"
-            strokeWidth="12"
-            strokeLinecap="butt"
-          />
-        </svg>
-        <svg
-          className="absolute top-1/3 left-2 w-28 h-28 text-foreground/5"
-          style={{ transform: "rotate(150deg)" }}
-          viewBox="0 0 200 200"
-          fill="none"
-        >
-          <path
-            d="M180,100a80,80 0 1,1 -160,0"
-            stroke="currentColor"
-            strokeWidth="8"
-            strokeLinecap="butt"
-          />
-        </svg>
+      {/* Background Arcs (z-10, above background, below content) */}
+      <div className="absolute inset-0 z-10 pointer-events-none">
+        {sidebarArcs.map((arc, i) => (
+          <svg
+            key={i}
+            className="text-foreground/5"
+            style={{ ...arc.style, pointerEvents: undefined }}
+            viewBox="0 0 200 200"
+            fill="none"
+          >
+            <path
+              d="M180,100a80,80 0 1,1 -160,0"
+              stroke="currentColor"
+              strokeWidth={arc.strokeWidth}
+              strokeLinecap="butt"
+            />
+          </svg>
+        ))}
       </div>
-
-      {/* Navigation Items */}
+      {/* Navigation Items (z-20) */}
       <div
         className={cn(
-          "relative flex flex-col gap-2 flex-1 justify-center items-center z-10",
+          "relative flex flex-col gap-2 flex-1 justify-center items-center z-20",
           expanded ? "p-3" : "py-3 px-2"
         )}
       >

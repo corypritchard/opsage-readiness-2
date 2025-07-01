@@ -1,4 +1,7 @@
 const ProblemSolutionSection = () => {
+  // Fixed random-like rotation angles for each arc (consistent on every load)
+  const arcRotations = [12, 188, 321]; // new visually distinct random angles
+
   return (
     <section className="py-20 px-6 bg-background relative overflow-hidden">
       {/* Randomized arc SVGs as geometric background */}
@@ -6,7 +9,7 @@ const ProblemSolutionSection = () => {
         {/* Arc 1 */}
         <svg
           className="absolute top-0 left-1/2 w-36 h-36 opacity-10"
-          style={{ transform: "rotate(25deg)" }}
+          style={{ transform: `rotate(${arcRotations[0]}deg)` }}
           viewBox="0 0 200 200"
           fill="none"
         >
@@ -20,7 +23,7 @@ const ProblemSolutionSection = () => {
         {/* Arc 2 */}
         <svg
           className="absolute bottom-0 right-1/4 w-52 h-52 opacity-20"
-          style={{ transform: "rotate(-18deg)" }}
+          style={{ transform: `rotate(${arcRotations[1]}deg)` }}
           viewBox="0 0 200 200"
           fill="none"
         >
@@ -34,7 +37,7 @@ const ProblemSolutionSection = () => {
         {/* Arc 3 */}
         <svg
           className="absolute top-1/3 left-0 w-28 h-28 opacity-10"
-          style={{ transform: "rotate(41deg)" }}
+          style={{ transform: `rotate(${arcRotations[2]}deg)` }}
           viewBox="0 0 200 200"
           fill="none"
         >

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { MainContent } from "@/components/MainContent";
 import { AIChatPanel } from "@/components/AIChatPanel";
 import DashboardHeader from "@/components/DashboardHeader";
@@ -6,6 +6,7 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { ProjectProvider, useProject } from "@/contexts/ProjectContext";
 import { WelcomeModal } from "@/components/WelcomeModal";
 import { saveFMECAData } from "@/integrations/supabase/maintenance-tasks";
+import React from "react";
 
 // Define a type for the staged changes for clarity
 export interface StagedChanges {
@@ -148,7 +149,7 @@ const DashboardContent = () => {
   };
 
   // Create a merged preview dataset that includes original rows + added rows + modified cells
-  const getPreviewData = () => {
+  const previewData = useMemo(() => {
     if (!stagedChanges || !proposedFmecaData) {
       return fmecaData; // No changes staged, show original data
     }
@@ -190,7 +191,7 @@ const DashboardContent = () => {
     });
 
     return previewData;
-  };
+  }, [fmecaData, stagedChanges, proposedFmecaData]);
 
   // Function to accept the staged changes
   const handleAcceptChanges = async () => {
@@ -233,8 +234,65 @@ const DashboardContent = () => {
     setChatPanelWidth(newWidth);
   };
 
-  const handleChatRef = (addMessage: (message: any) => void) => {
-    setAddChatMessage(() => addMessage);
+  const handleChatRef = React.useCallback(
+    (addMessage: (message: any) => void) => {
+      setAddChatMessage(() => addMessage);
+    },
+    []
+  );
+
+  // Handle direct cell edits from the table
+  const handleCellEdit = (updatedData: any[]) => {
+    if (stagedChanges) {
+      // If there are staged changes, we need to merge the cell edit with the staged changes
+      console.log("Dashboard: Cell edit with staged changes present");
+
+      // Calculate the diff between the original data and the updated data
+      const cellEditDiff = calculateDataDiff(fmecaData, updatedData);
+
+      // Merge the cell edit changes with existing staged changes
+      const mergedModified = [...stagedChanges.modified];
+
+      cellEditDiff.modified.forEach((cellEdit) => {
+        // Check if this cell is already in staged changes
+        const existingIndex = mergedModified.findIndex(
+          (mod) =>
+            mod.rowIndex === cellEdit.rowIndex &&
+            mod.columnId === cellEdit.columnId
+        );
+
+        if (existingIndex >= 0) {
+          // Update existing staged change
+          mergedModified[existingIndex] = cellEdit;
+        } else {
+          // Add new staged change
+          mergedModified.push(cellEdit);
+        }
+      });
+
+      // Update staged changes with merged modifications
+      setStagedChanges({
+        ...stagedChanges,
+        modified: mergedModified,
+      });
+
+      // Update the proposed data to reflect the cell edit
+      const updatedProposedData = [...proposedFmecaData!];
+      cellEditDiff.modified.forEach((cellEdit) => {
+        const { rowIndex, columnId, newValue } = cellEdit;
+        if (updatedProposedData[rowIndex]) {
+          updatedProposedData[rowIndex] = {
+            ...updatedProposedData[rowIndex],
+            [columnId]: newValue,
+          };
+        }
+      });
+      setProposedFmecaData(updatedProposedData);
+    } else {
+      // No staged changes, just update the data normally
+      console.log("Dashboard: Direct cell edit, no staged changes");
+      setFmecaData(updatedData);
+    }
   };
 
   return (
@@ -265,8 +323,8 @@ const DashboardContent = () => {
             selectedNav={selectedNav}
             selectedFile={selectedFile}
             setSelectedFile={setSelectedFile}
-            fmecaData={getPreviewData()}
-            setFmecaData={setFmecaData}
+            fmecaData={previewData}
+            setFmecaData={handleCellEdit}
             columns={columns}
             setColumns={setColumns}
             stagedChanges={stagedChanges}

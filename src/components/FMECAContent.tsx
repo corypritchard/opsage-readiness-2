@@ -15,6 +15,13 @@ import {
   saveFMECAData,
   getFMECAData,
 } from "@/integrations/supabase/maintenance-tasks";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 interface FMECAContentProps {
   className?: string;
@@ -43,29 +50,25 @@ export function FMECAContent({
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [loadedProjectId, setLoadedProjectId] = useState<string | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const { currentProject } = useProject();
 
   // Load FMECA data from database when project changes (but only if data is empty)
   useEffect(() => {
-    if (currentProject) {
-      // Only load if we don't already have data for this project
-      if (fmecaData.length === 0) {
-        loadFMECADataFromDatabase();
-      }
-    } else {
-      // Clear data only when no project is selected
+    const shouldLoadData = currentProject && fmecaData.length === 0;
+    const shouldClearData = !currentProject;
+
+    if (shouldLoadData) {
+      console.log("Loading FMECA data for project:", currentProject.id);
+      loadFMECADataFromDatabase();
+    } else if (shouldClearData) {
+      console.log("Clearing FMECA data because no project is selected");
       setFmecaData([]);
       setColumns([]);
       setSelectedFile(null);
     }
-  }, [
-    currentProject,
-    fmecaData.length,
-    setFmecaData,
-    setColumns,
-    setSelectedFile,
-  ]);
+  }, [currentProject?.id]); // Only depend on the project ID, not the full project or data length
 
   // Reload data when refreshTrigger changes (triggered by AI agent updates)
   useEffect(() => {
@@ -443,6 +446,59 @@ export function FMECAContent({
                     <Save className="h-4 w-4 mr-2" />
                     {isSaving ? "Saving..." : "Save to Database"}
                   </Button>
+                  <Dialog
+                    open={showDeleteDialog}
+                    onOpenChange={setShowDeleteDialog}
+                  >
+                    <DialogTrigger asChild>
+                      <Button variant="destructive" className="h-11 ml-2">
+                        Delete Table
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Delete Entire Table?</DialogTitle>
+                      </DialogHeader>
+                      <div className="py-4">
+                        Are you sure you want to delete all FMECA rows? This
+                        cannot be undone.
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => setShowDeleteDialog(false)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          onClick={async () => {
+                            setFmecaData([]);
+                            setShowDeleteDialog(false);
+                            await saveFMECAData(
+                              currentProject.id,
+                              [],
+                              columns.length > 0
+                                ? columns
+                                : [
+                                    "Asset Type",
+                                    "Component",
+                                    "Failure Modes",
+                                    "Effect of Final Failure",
+                                    "Severity",
+                                    "Occurrence",
+                                    "Detection",
+                                    "RPN",
+                                  ]
+                            );
+                            toast("FMECA table deleted and saved.");
+                          }}
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                 </div>
               </div>
             </div>
@@ -505,6 +561,59 @@ export function FMECAContent({
                     <Save className="h-4 w-4 mr-2" />
                     {isSaving ? "Saving..." : "Save to Database"}
                   </Button>
+                  <Dialog
+                    open={showDeleteDialog}
+                    onOpenChange={setShowDeleteDialog}
+                  >
+                    <DialogTrigger asChild>
+                      <Button variant="destructive" className="h-11 ml-2">
+                        Delete Table
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Delete Entire Table?</DialogTitle>
+                      </DialogHeader>
+                      <div className="py-4">
+                        Are you sure you want to delete all FMECA rows? This
+                        cannot be undone.
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => setShowDeleteDialog(false)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          onClick={async () => {
+                            setFmecaData([]);
+                            setShowDeleteDialog(false);
+                            await saveFMECAData(
+                              currentProject.id,
+                              [],
+                              columns.length > 0
+                                ? columns
+                                : [
+                                    "Asset Type",
+                                    "Component",
+                                    "Failure Modes",
+                                    "Effect of Final Failure",
+                                    "Severity",
+                                    "Occurrence",
+                                    "Detection",
+                                    "RPN",
+                                  ]
+                            );
+                            toast("FMECA table deleted and saved.");
+                          }}
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                 </div>
               </div>
             </div>

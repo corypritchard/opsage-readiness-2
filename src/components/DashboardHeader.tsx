@@ -34,8 +34,37 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { toast } from "@/components/ui/sonner";
+
+// Arc background properties: consistent but randomized
+const headerArcs = [
+  {
+    // Far left
+    className: "absolute top-0 left-0 w-72 h-72 text-foreground/5",
+    style: { transform: "rotate(48deg)", opacity: 0.8 },
+    strokeWidth: 18,
+  },
+  {
+    // Left-center
+    className: "absolute top-4 left-1/4 w-80 h-80 text-foreground/5",
+    style: { transform: "rotate(129deg)", opacity: 0.8 },
+    strokeWidth: 20,
+  },
+  {
+    // Right-center
+    className:
+      "absolute top-1/2 left-2/3 -translate-y-1/2 w-72 h-72 text-foreground/5",
+    style: { transform: "rotate(211deg)", opacity: 0.8 },
+    strokeWidth: 19,
+  },
+  {
+    // Far right
+    className: "absolute bottom-2 right-0 w-80 h-80 text-foreground/5",
+    style: { transform: "rotate(302deg)", opacity: 0.8 },
+    strokeWidth: 21,
+  },
+];
 
 const DashboardHeader = () => {
   const { user, signOut } = useAuth();
@@ -113,103 +142,87 @@ const DashboardHeader = () => {
     }
   };
 
+  const handleProjectChange = useCallback(
+    (value: string) => {
+      if (value === "new-project") {
+        setShowProjectDialog(true);
+        return;
+      }
+      if (value === currentProject?.id) return; // no change
+
+      const project = projects.find((p) => p.id === value);
+      setCurrentProject(project || null);
+    },
+    [projects, currentProject?.id, setCurrentProject]
+  );
+
   return (
     <header className="fixed top-0 left-0 right-0 z-50 w-full bg-gradient-to-r from-white via-gray-50 to-white dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm backdrop-blur-sm overflow-hidden">
       {/* Background Arcs */}
       <div className="absolute inset-0 pointer-events-none z-0">
-        <svg
-          className="absolute -top-16 left-1/4 w-48 h-48 text-foreground/5"
-          style={{ transform: "rotate(45deg)" }}
-          viewBox="0 0 200 200"
-          fill="none"
-        >
-          <path
-            d="M180,100a80,80 0 1,1 -160,0"
-            stroke="currentColor"
-            strokeWidth="10"
-            strokeLinecap="butt"
-          />
-        </svg>
-        <svg
-          className="absolute bottom-0 -right-10 w-40 h-40 text-foreground/5"
-          style={{ transform: "rotate(-30deg)" }}
-          viewBox="0 0 200 200"
-          fill="none"
-        >
-          <path
-            d="M180,100a80,80 0 1,1 -160,0"
-            stroke="currentColor"
-            strokeWidth="12"
-            strokeLinecap="butt"
-          />
-        </svg>
-        <svg
-          className="absolute -bottom-8 left-10 w-28 h-28 text-foreground/5"
-          style={{ transform: "rotate(120deg)" }}
-          viewBox="0 0 200 200"
-          fill="none"
-        >
-          <path
-            d="M180,100a80,80 0 1,1 -160,0"
-            stroke="currentColor"
-            strokeWidth="8"
-            strokeLinecap="butt"
-          />
-        </svg>
+        {headerArcs.map((arc, i) => (
+          <svg
+            key={i}
+            className={arc.className}
+            style={arc.style}
+            viewBox="0 0 200 200"
+            fill="none"
+          >
+            <path
+              d="M180,100a80,80 0 1,1 -160,0"
+              stroke="currentColor"
+              strokeWidth={arc.strokeWidth}
+              strokeLinecap="butt"
+            />
+          </svg>
+        ))}
       </div>
 
       <div className="relative flex items-center justify-between px-6 py-3 z-10">
         {/* Left side - Logo and Project Info */}
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-3">
-          <img
-            src={
-              resolvedTheme === "dark"
-                ? "/lovable-uploads/99e1c9c8-57aa-4386-91f7-9fba40624b01-white.png"
-                : "/lovable-uploads/99e1c9c8-57aa-4386-91f7-9fba40624b01.png"
-            }
-            alt="Opsage Logo"
-            className={`h-12 w-auto object-contain${
-              resolvedTheme === "dark" ? " dark-logo-fallback" : ""
-            }`}
-            style={
-              resolvedTheme === "dark"
-                ? { filter: "brightness(0) invert(1)" }
-                : undefined
-            }
-            onError={(e) => {
-              if (resolvedTheme === "dark") {
-                (e.currentTarget as HTMLImageElement).src =
-                  "/lovable-uploads/99e1c9c8-57aa-4386-91f7-9fba40624b01.png";
-                (e.currentTarget as HTMLImageElement).style.filter =
-                  "brightness(0) invert(1)";
+            <img
+              src={
+                resolvedTheme === "dark"
+                  ? "/lovable-uploads/99e1c9c8-57aa-4386-91f7-9fba40624b01-white.png"
+                  : "/lovable-uploads/99e1c9c8-57aa-4386-91f7-9fba40624b01.png"
               }
-            }}
-          />
+              alt="Opsage Logo"
+              className={`h-12 w-auto object-contain${
+                resolvedTheme === "dark" ? " dark-logo-fallback" : ""
+              }`}
+              style={
+                resolvedTheme === "dark"
+                  ? { filter: "brightness(0) invert(1)" }
+                  : undefined
+              }
+              onError={(e) => {
+                if (resolvedTheme === "dark") {
+                  (e.currentTarget as HTMLImageElement).src =
+                    "/lovable-uploads/99e1c9c8-57aa-4386-91f7-9fba40624b01.png";
+                  (e.currentTarget as HTMLImageElement).style.filter =
+                    "brightness(0) invert(1)";
+                }
+              }}
+            />
             <span className="bg-blue-50 text-blue-700 ring-blue-600/20 dark:bg-blue-400/10 dark:text-blue-400 dark:ring-blue-400/20 px-3 py-1 text-xs font-medium ring-1 ring-inset rounded-full font-mono">
               0.1.0-alpha
-                    </span>
-                  </div>
+            </span>
+          </div>
 
           {/* Project Selector */}
           {currentProject && (
             <div className="flex items-center gap-3">
               <Select
                 value={currentProject.id}
-                onValueChange={(value) => {
-                  if (value === "new-project") {
-                    setShowProjectDialog(true);
-                  } else {
-                    const project = projects.find((p) => p.id === value);
-                    setCurrentProject(project || null);
-                  }
-                }}
+                onValueChange={handleProjectChange}
               >
                 <SelectTrigger className="w-48 h-9 text-sm">
                   <SelectValue placeholder="Switch project" />
                 </SelectTrigger>
                 <SelectContent>
-                {projects.map((project) => (
+                  {projects.map((project) => (
                     <SelectItem key={project.id} value={project.id}>
                       {project.name}
                     </SelectItem>
@@ -276,13 +289,13 @@ const DashboardHeader = () => {
                   </div>
                 </DialogContent>
               </Dialog>
-          </div>
+            </div>
           )}
         </div>
 
         {/* Right side - User controls */}
         <div className="flex items-center gap-3">
-            <ThemeToggle />
+          <ThemeToggle />
 
           <div className="flex items-center gap-2">
             <Avatar className="h-8 w-8">

@@ -23,6 +23,9 @@ const HowItWorksSection = () => {
     },
   ];
 
+  // Fixed random-like rotation angles for each arc (consistent on every load)
+  const arcRotations = [23, 201, 337]; // new visually distinct random angles
+
   return (
     <section
       id="how-it-works"
@@ -33,7 +36,7 @@ const HowItWorksSection = () => {
         {/* Arc 1 */}
         <svg
           className="absolute top-0 left-1/4 w-40 h-40 opacity-10"
-          style={{ transform: "rotate(18deg)" }}
+          style={{ transform: `rotate(${arcRotations[0]}deg)` }}
           viewBox="0 0 200 200"
           fill="none"
         >
@@ -47,7 +50,7 @@ const HowItWorksSection = () => {
         {/* Arc 2 */}
         <svg
           className="absolute bottom-8 right-1/3 w-56 h-56 opacity-20"
-          style={{ transform: "rotate(-27deg)" }}
+          style={{ transform: `rotate(${arcRotations[1]}deg)` }}
           viewBox="0 0 200 200"
           fill="none"
         >
@@ -61,7 +64,7 @@ const HowItWorksSection = () => {
         {/* Arc 3 */}
         <svg
           className="absolute top-1/2 left-0 w-32 h-32 opacity-10"
-          style={{ transform: "rotate(44deg)" }}
+          style={{ transform: `rotate(${arcRotations[2]}deg)` }}
           viewBox="0 0 200 200"
           fill="none"
         >

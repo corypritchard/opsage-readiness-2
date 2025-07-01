@@ -32,7 +32,6 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { FileUploadZone } from "@/components/FileUploadZone";
 import { useTheme } from "@/contexts/ThemeContext";
 import {
-  FMECAAgent,
   AgentMessage,
   AgentResponse,
   FunctionCall,
@@ -325,18 +324,6 @@ export function AIChatPanel({
   const { currentProject } = useProject();
   const { sendMessage } = useAIChat();
 
-  // Initialize AI Agent - will be created when we have a project
-  const [agent, setAgent] = useState<FMECAAgent | null>(null);
-
-  // Update agent when project changes
-  useEffect(() => {
-    if (currentProject?.id) {
-      setAgent(new FMECAAgent(currentProject.id));
-    } else {
-      setAgent(null);
-    }
-  }, [currentProject?.id]);
-
   // Function to add a message from external components
   const addMessage = (message: AgentMessage) => {
     setMessages((prev) => [...prev, message]);
@@ -473,15 +460,35 @@ export function AIChatPanel({
             "Performed vector search and consulted AI model",
           ],
         };
-      } else if (agent) {
-        // For edit mode, use the full AI agent capabilities
-        response = await agent.processRequest(
-          inputValue,
-          fmecaData || [],
-          columns || []
+      } else if (chatMode === "edit") {
+        // For edit mode, use the AI chat hook with vector search
+        const messages = [
+          ...updatedMessages,
+          { type: "user" as const, content: inputValue },
+        ];
+
+        const aiResponse = await sendMessage(
+          messages,
+          fmecaData,
+          columns,
+          "edit"
         );
+
+        response = {
+          response: aiResponse.response,
+          functionCalls: [],
+          dataChanged: !!aiResponse.updatedData,
+          updatedData: aiResponse.updatedData,
+          thinking: [
+            `Received edit request: "${inputValue}"`,
+            "Performed vector search and consulted AI model",
+            aiResponse.updatedData
+              ? "Generated updated FMECA data"
+              : "No data changes required",
+          ],
+        };
       } else {
-        // Edit mode but no agent available (no project selected)
+        // No valid mode or agent available
         response = {
           response:
             "Please select a project first to use the AI Agent for FMECA operations.",

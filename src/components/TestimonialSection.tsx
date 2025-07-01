@@ -1,4 +1,7 @@
 const TestimonialSection = () => {
+  // Fixed random-like rotation angles for each arc (consistent on every load)
+  const arcRotations = [34, 157, 283]; // new visually distinct random angles
+
   return (
     <section className="py-20 px-6 bg-muted/30 relative overflow-hidden">
       {/* Randomized arc SVGs as geometric background */}
@@ -6,7 +9,7 @@ const TestimonialSection = () => {
         {/* Arc 1 */}
         <svg
           className="absolute top-0 left-1/3 w-32 h-32 opacity-10"
-          style={{ transform: "rotate(-19deg)" }}
+          style={{ transform: `rotate(${arcRotations[0]}deg)` }}
           viewBox="0 0 200 200"
           fill="none"
         >
@@ -20,7 +23,7 @@ const TestimonialSection = () => {
         {/* Arc 2 */}
         <svg
           className="absolute bottom-0 right-0 w-44 h-44 opacity-20"
-          style={{ transform: "rotate(27deg)" }}
+          style={{ transform: `rotate(${arcRotations[1]}deg)` }}
           viewBox="0 0 200 200"
           fill="none"
         >
@@ -34,7 +37,7 @@ const TestimonialSection = () => {
         {/* Arc 3 */}
         <svg
           className="absolute top-1/2 left-0 w-24 h-24 opacity-10"
-          style={{ transform: "rotate(38deg)" }}
+          style={{ transform: `rotate(${arcRotations[2]}deg)` }}
           viewBox="0 0 200 200"
           fill="none"
         >
