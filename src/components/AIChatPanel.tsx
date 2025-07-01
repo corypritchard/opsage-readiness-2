@@ -39,6 +39,7 @@ import {
 } from "@/services/fmecaAgent";
 import { useProject } from "@/contexts/ProjectContext";
 import { useAIChat } from "@/hooks/useAIChat";
+import ReactMarkdown from "react-markdown";
 
 interface AIChatPanelProps {
   className?: string;
@@ -642,7 +643,11 @@ export function AIChatPanel({
                         )}
                       >
                         <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
-                          {message.content}
+                          {message.role === "assistant" ? (
+                            <ReactMarkdown>{message.content}</ReactMarkdown>
+                          ) : (
+                            message.content
+                          )}
                         </p>
                       </div>
 

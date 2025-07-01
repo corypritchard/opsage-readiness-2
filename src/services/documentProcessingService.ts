@@ -224,6 +224,19 @@ export async function chunkDocument({
       // Approximate token count (rough estimate: 4 chars ~= 1 token)
       const tokenCount = Math.ceil(enhancedContent.length / 4);
 
+      // Add asset metadata if available
+      let assetName = null;
+      let assetType = null;
+      if (document.asset_id && assetContext) {
+        // Try to extract asset name/type from assetContext or fetch asset again if needed
+        // But we already fetched asset above if asset_id exists
+        const { data: asset } = await getAsset(document.asset_id);
+        if (asset) {
+          assetName = asset.name || null;
+          assetType = asset.type || null;
+        }
+      }
+
       const chunkData = {
         document_id: documentId,
         chunk_index: i,
@@ -237,6 +250,8 @@ export async function chunkDocument({
           tokenCount: tokenCount,
           hasAssetContext: !!assetContext, // Flag to indicate asset context inclusion
           assetId: document.asset_id || null, // Store asset ID for reference
+          assetName: assetName, // Store asset name for reference
+          assetType: assetType, // Store asset type for reference
         },
       };
 

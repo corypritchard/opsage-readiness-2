@@ -85,14 +85,21 @@ serve(async (req) => {
       if (chatMode === "ask") {
         let documentSection = "";
         if (documentContext && documentContext.length > 0) {
-          // Group chunks by document name to avoid confusion
+          // Group chunks by document name and clean asset context to avoid confusion
           const documentGroups = documentContext.reduce(
             (groups: any, chunk: any) => {
               const docName = chunk.document_name || "Unknown Document";
               if (!groups[docName]) {
                 groups[docName] = [];
               }
-              groups[docName].push(chunk.content);
+
+              // Remove asset context from chunk content to avoid AI confusion
+              // Asset context looks like: [Asset: Name | Type: xxx | FLOC: xxx]\n\n
+              const cleanContent = chunk.content.replace(
+                /^\[Asset:.*?\]\n\n/s,
+                ""
+              );
+              groups[docName].push(cleanContent);
               return groups;
             },
             {}
@@ -100,10 +107,19 @@ serve(async (req) => {
 
           // Format grouped content clearly
           const documentContent = Object.entries(documentGroups)
-            .map(
-              ([docName, chunks]: [string, any]) =>
-                `Document: ${docName}\n${(chunks as string[]).join("\n\n")}`
-            )
+            .map(([docName, chunks]: [string, any]) => {
+              // Find the first chunk in the group to get asset metadata
+              const firstChunk = documentContext.find(
+                (c: any) => c.document_name === docName
+              );
+              const assetName =
+                firstChunk?.metadata?.assetName || "Unknown Asset";
+              const assetType =
+                firstChunk?.metadata?.assetType || "Unknown Type";
+              return `Document: ${docName} (Asset: ${assetName} | Type: ${assetType})\n${(
+                chunks as string[]
+              ).join("\n\n")}`;
+            })
             .join("\n\n--- Next Document ---\n\n");
 
           documentSection = `\n\nRELEVANT DOCUMENTATION:\n${documentContent}\n\nNote: The above content comes from uploaded documents. When referencing information, mention it comes from the relevant document.`;
