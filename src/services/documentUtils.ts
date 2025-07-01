@@ -2,8 +2,14 @@
  * Document Parsing Utilities
  *
  * Helper functions for extracting text content from various document types.
- * Note: For production use, this would likely be handled server-side.
+ * Uses PDF.js for client-side PDF text extraction.
  */
+
+import * as pdfjsLib from "pdfjs-dist";
+
+// Configure PDF.js worker using exact version match
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  "https://unpkg.com/pdfjs-dist@5.3.31/build/pdf.worker.min.mjs";
 
 /**
  * Extract text content from a file based on its type
@@ -28,9 +34,7 @@ export async function extractTextFromFile(file: File): Promise<string> {
     }
     // Handle PDF files
     else if (fileType === "application/pdf") {
-      content =
-        "PDF text extraction requires server-side processing or a client-side PDF library.";
-      // For a production implementation, consider using pdf.js or server-side extraction
+      content = await extractTextFromPDF(file);
     }
     // Handle Word documents
     else if (
@@ -83,6 +87,52 @@ async function readTextFile(file: File): Promise<string> {
 
     reader.readAsText(file);
   });
+}
+
+/**
+ * Extract text content from a PDF file using PDF.js
+ */
+async function extractTextFromPDF(file: File): Promise<string> {
+  try {
+    console.log(`🔍 Starting PDF text extraction for: ${file.name}`);
+
+    // Convert file to ArrayBuffer
+    const arrayBuffer = await file.arrayBuffer();
+
+    // Load PDF document
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    console.log(`📄 PDF loaded with ${pdf.numPages} pages`);
+
+    let fullText = "";
+
+    // Extract text from each page
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const textContent = await page.getTextContent();
+
+      // Combine text items from the page
+      const pageText = textContent.items.map((item: any) => item.str).join(" ");
+
+      fullText += pageText + "\n\n";
+
+      console.log(
+        `📃 Extracted text from page ${pageNum}: ${pageText.length} characters`
+      );
+    }
+
+    console.log(
+      `✅ PDF extraction complete: ${fullText.length} total characters`
+    );
+
+    if (!fullText.trim()) {
+      return "PDF appears to be empty or contains only images/scanned content that cannot be extracted as text.";
+    }
+
+    return fullText.trim();
+  } catch (error) {
+    console.error("❌ PDF extraction failed:", error);
+    throw new Error(`Failed to extract text from PDF: ${error.message}`);
+  }
 }
 
 /**

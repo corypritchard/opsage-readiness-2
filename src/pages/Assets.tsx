@@ -1,8 +1,18 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "@/components/ui/sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import { useProject } from "@/contexts/ProjectContext";
+import {
+  getAssets,
+  createAsset,
+  updateAsset,
+  deleteAsset,
+  type Asset,
+} from "@/integrations/supabase/assets";
 import {
   Plus,
   Edit,
@@ -14,6 +24,7 @@ import {
   Calendar,
   Tag,
   Activity,
+  Loader2,
 } from "lucide-react";
 import {
   Dialog,
@@ -33,28 +44,49 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 
-interface Asset {
-  id: string;
-  name: string;
-  description: string;
-  creationDate: string;
-  tags: string[];
-  floc: string; // Functional Location
-}
-
 const Assets = () => {
-  const [assets, setAssets] = useState<Asset[]>([]);
+  const { user } = useAuth();
+  const { currentProject } = useProject();
 
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    tags: "",
     floc: "",
+    tags: "",
   });
+
+  // Load assets from database
+  const loadAssets = async () => {
+    if (!currentProject?.id) {
+      setAssets([]);
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const { data } = await getAssets(currentProject.id);
+      setAssets(data);
+    } catch (error) {
+      console.error("Error loading assets:", error);
+      toast("Error loading assets", {
+        description: "Failed to load assets from database.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAssets();
+  }, [currentProject?.id]);
 
   // Filter assets based on search and status
   const filteredAssets = assets.filter((asset) => {
@@ -71,60 +103,104 @@ const Assets = () => {
     setFormData({
       name: "",
       description: "",
-      tags: "",
       floc: "",
+      tags: "",
     });
     setIsDialogOpen(true);
   };
 
   const handleEditAsset = (asset: Asset) => {
     setEditingAsset(asset);
+
+    // Extract description and tags from specifications if stored there
+    const specs = (asset.specifications as any) || {};
+    const description = specs.description || "";
+    const tags = specs.tags
+      ? Array.isArray(specs.tags)
+        ? specs.tags.join(", ")
+        : ""
+      : "";
+
     setFormData({
       name: asset.name,
-      description: asset.description,
-      tags: asset.tags.join(", "),
-      floc: asset.floc,
+      description: description,
+      floc: asset.location || "",
+      tags: tags,
     });
     setIsDialogOpen(true);
   };
 
-  const handleSaveAsset = () => {
+  const handleSaveAsset = async () => {
+    if (!currentProject?.id) {
+      toast("Error", {
+        description: "Project information missing.",
+      });
+      return;
+    }
+
+    // Parse tags from comma-separated string
     const tagsArray = formData.tags
       .split(",")
       .map((tag) => tag.trim())
       .filter((tag) => tag.length > 0);
 
-    if (editingAsset) {
-      setAssets(
-        assets.map((asset) =>
-          asset.id === editingAsset.id
-            ? {
-                ...asset,
-                name: formData.name,
-                description: formData.description,
-                tags: tagsArray,
-                floc: formData.floc,
-              }
-            : asset
-        )
-      );
-    } else {
-      const newAsset: Asset = {
-        id: Date.now().toString(),
-        name: formData.name,
-        description: formData.description,
-        creationDate: new Date().toISOString().split("T")[0],
-        tags: tagsArray,
-        floc: formData.floc,
-      };
-      setAssets([...assets, newAsset]);
-    }
+    // Store description and tags in specifications JSON
+    const specifications = {
+      description: formData.description,
+      tags: tagsArray,
+    };
 
-    setIsDialogOpen(false);
+    try {
+      setIsSaving(true);
+
+      if (editingAsset) {
+        await updateAsset(editingAsset.id, {
+          name: formData.name,
+          type: formData.name, // Use name as type for consistency
+          location: formData.floc || null,
+          specifications: specifications,
+        });
+        toast("Success", {
+          description: "Asset updated successfully.",
+        });
+      } else {
+        await createAsset({
+          name: formData.name,
+          type: formData.name, // Use name as type for consistency
+          location: formData.floc || null,
+          specifications: specifications,
+          project_id: currentProject.id,
+        });
+        toast("Success", {
+          description: "Asset created successfully.",
+        });
+      }
+
+      setIsDialogOpen(false);
+      loadAssets(); // Reload assets
+    } catch (error) {
+      console.error("Error saving asset:", error);
+      toast("Error", {
+        description: `Failed to ${editingAsset ? "update" : "create"} asset.`,
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleDeleteAsset = (assetId: string) => {
-    setAssets(assets.filter((asset) => asset.id !== assetId));
+  const handleDeleteAsset = async (assetId: string) => {
+    try {
+      await deleteAsset(assetId);
+      toast("Success", {
+        description: "Asset deleted successfully.",
+      });
+      loadAssets(); // Reload assets
+    } catch (error) {
+      console.error("Error deleting asset:", error);
+      toast("Error", {
+        description: "Failed to delete asset.",
+      });
+    }
   };
 
   const getStatusCount = (status: string) => {
@@ -254,9 +330,12 @@ const Assets = () => {
                   </Button>
                   <Button
                     onClick={handleSaveAsset}
-                    disabled={!formData.name.trim()}
+                    disabled={!formData.name.trim() || isSaving}
                     className="h-11 btn-primary"
                   >
+                    {isSaving && (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    )}
                     {editingAsset ? "Update Asset" : "Create Asset"}
                   </Button>
                 </DialogFooter>
@@ -282,7 +361,17 @@ const Assets = () => {
 
         {/* Assets Table */}
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-          {filteredAssets.length === 0 ? (
+          {isLoading ? (
+            <div className="text-center py-16">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto text-gray-400 mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                Loading assets...
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400">
+                Please wait while we fetch your assets
+              </p>
+            </div>
+          ) : filteredAssets.length === 0 ? (
             <div className="text-center py-16">
               <div className="mx-auto h-24 w-24 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-4">
                 <Package className="h-12 w-12 text-gray-400" />
@@ -336,38 +425,58 @@ const Assets = () => {
                             {asset.name}
                           </h4>
                           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
-                            {asset.description}
+                            {(asset.specifications as any)?.description ||
+                              "No description"}
                           </p>
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="text-sm font-mono text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
-                          {asset.floc}
-                        </span>
+                        {asset.location ? (
+                          <span className="text-sm font-mono text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
+                            {asset.location}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400">No FLOC</span>
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-wrap gap-1">
-                          {asset.tags.slice(0, 2).map((tag, index) => (
-                            <Badge
-                              key={index}
-                              variant="secondary"
-                              className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-                            >
-                              {tag}
-                            </Badge>
-                          ))}
-                          {asset.tags.length > 2 && (
-                            <Badge
-                              variant="secondary"
-                              className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-                            >
-                              +{asset.tags.length - 2}
-                            </Badge>
+                          {(asset.specifications as any)?.tags &&
+                          Array.isArray((asset.specifications as any).tags) &&
+                          (asset.specifications as any).tags.length > 0 ? (
+                            <>
+                              {(asset.specifications as any).tags
+                                .slice(0, 2)
+                                .map((tag: string, index: number) => (
+                                  <Badge
+                                    key={index}
+                                    variant="secondary"
+                                    className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                                  >
+                                    {tag}
+                                  </Badge>
+                                ))}
+                              {(asset.specifications as any).tags.length >
+                                2 && (
+                                <Badge
+                                  variant="secondary"
+                                  className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                                >
+                                  +
+                                  {(asset.specifications as any).tags.length -
+                                    2}
+                                </Badge>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-xs text-gray-400">
+                              No tags
+                            </span>
                           )}
                         </div>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
-                        {new Date(asset.creationDate).toLocaleDateString()}
+                        {new Date(asset.created_at).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 text-right">
                         <DropdownMenu>

@@ -78,6 +78,9 @@ export const useDocumentProcessor = () => {
 
       // Extract text content from the file
       const rawContent = await extractTextFromFile(file);
+      console.log(
+        `📊 Extracted ${rawContent.length} characters from ${file.name}`
+      );
       setProgress(30);
 
       // Normalize the text content

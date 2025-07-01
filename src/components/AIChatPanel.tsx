@@ -38,6 +38,7 @@ import {
   FunctionCall,
 } from "@/services/fmecaAgent";
 import { useProject } from "@/contexts/ProjectContext";
+import { useAIChat } from "@/hooks/useAIChat";
 
 interface AIChatPanelProps {
   className?: string;
@@ -321,6 +322,7 @@ export function AIChatPanel({
   const [isDocProcessing, setIsDocProcessing] = useState(false);
   const { resolvedTheme } = useTheme();
   const { currentProject } = useProject();
+  const { sendMessage } = useAIChat();
 
   // Initialize AI Agent - will be created when we have a project
   const [agent, setAgent] = useState<FMECAAgent | null>(null);
@@ -448,14 +450,26 @@ export function AIChatPanel({
       let response: AgentResponse;
 
       if (chatMode === "ask") {
-        // For ask mode, create a simple response without data modification
+        // For ask mode, use the AI chat hook with vector search
+        const messages = [
+          ...updatedMessages,
+          { type: "user" as const, content: inputValue },
+        ];
+
+        const aiResponse = await sendMessage(
+          messages,
+          fmecaData,
+          columns,
+          "ask"
+        );
+
         response = {
-          response: `I understand you want to know: "${inputValue}"\n\nI can analyze your FMECA data to provide insights. However, for the most comprehensive analysis, I recommend switching to Edit mode where I can perform detailed data operations and provide more specific answers.`,
+          response: aiResponse.response, // Extract just the response text
           functionCalls: [],
           dataChanged: false,
           thinking: [
             `Received question: "${inputValue}"`,
-            "Operating in Ask mode - providing informational response",
+            "Performed vector search and consulted AI model",
           ],
         };
       } else if (agent) {

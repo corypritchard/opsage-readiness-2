@@ -1,17 +1,12 @@
 import { supabase } from "@/integrations/supabase/client";
-import { OpenAI } from "openai";
 import { chunk as chunkText } from "./chunking";
+import { getAsset } from "@/integrations/supabase/assets";
 
 /**
  * Document Processing Service
  * Handles document uploads, chunking, and embedding generation
+ * Uses Supabase Edge Functions for secure OpenAI API access
  */
-
-// Create a new OpenAI instance
-const openai = new OpenAI({
-  apiKey: import.meta.env.VITE_OPENAI_API_KEY,
-  dangerouslyAllowBrowser: true, // Note: In production, API calls should go through Supabase Edge Functions
-});
 
 // Constants
 const MAX_CHUNK_SIZE = 500; // Characters per chunk
@@ -42,6 +37,58 @@ interface GenerateEmbeddingsParams {
 }
 
 /**
+ * Create asset context string to prepend to document chunks
+ * This enables search by asset name, FLOC, tags, etc.
+ */
+function createAssetContext(asset: any): string {
+  if (!asset) return "";
+
+  const contextParts = [];
+
+  // Add asset name
+  if (asset.name) {
+    contextParts.push(`Asset: ${asset.name}`);
+  }
+
+  // Add asset type
+  if (asset.type) {
+    contextParts.push(`Type: ${asset.type}`);
+  }
+
+  // Add FLOC from location field
+  if (asset.location) {
+    contextParts.push(`FLOC: ${asset.location}`);
+  }
+
+  // Extract description and tags from specifications JSON
+  if (asset.specifications) {
+    if (asset.specifications.description) {
+      contextParts.push(`Description: ${asset.specifications.description}`);
+    }
+    if (asset.specifications.tags) {
+      contextParts.push(`Tags: ${asset.specifications.tags}`);
+    }
+  }
+
+  // Add manufacturer and model if they exist
+  if (asset.manufacturer) {
+    contextParts.push(`Manufacturer: ${asset.manufacturer}`);
+  }
+  if (asset.model) {
+    contextParts.push(`Model: ${asset.model}`);
+  }
+
+  // Add serial number if it exists
+  if (asset.serial_number) {
+    contextParts.push(`Serial Number: ${asset.serial_number}`);
+  }
+
+  // Create the context string
+  const contextString = contextParts.join(" | ");
+  return contextString ? `[${contextString}]\n\n` : "";
+}
+
+/**
  * Uploads a document to Supabase Storage and creates the document record
  */
 export async function uploadDocument({
@@ -54,10 +101,10 @@ export async function uploadDocument({
   metadata,
 }: DocumentUploadParams) {
   try {
-    // Generate a unique file path
+    // Generate a unique file path with user ID for security
     const timestamp = Date.now();
     const fileExtension = file.name.split(".").pop();
-    const filePath = `uploads/${projectId}/${timestamp}_${file.name}`;
+    const filePath = `${userId}/${timestamp}_${file.name}`;
 
     // Upload file to Supabase Storage
     const { data: uploadData, error: uploadError } = await supabase.storage
@@ -73,6 +120,7 @@ export async function uploadDocument({
       .from("documents")
       .insert({
         name: fileName || file.name,
+        file_name: file.name,
         description,
         file_path: filePath,
         file_type: fileExtension || "unknown",
@@ -98,6 +146,7 @@ export async function uploadDocument({
       .insert({
         document_id: documentData.id,
         status: "pending",
+        user_id: userId,
       });
 
     if (jobError) {
@@ -139,6 +188,29 @@ export async function chunkDocument({
       throw new Error(`Error getting document: ${documentError.message}`);
     }
 
+    // Get asset information if the document is linked to an asset
+    let assetContext = "";
+    if (document.asset_id) {
+      try {
+        console.log(
+          `🔗 Fetching asset context for asset ID: ${document.asset_id}`
+        );
+        const { data: asset } = await getAsset(document.asset_id);
+        if (asset) {
+          assetContext = createAssetContext(asset);
+          console.log(
+            `📋 Asset context created: ${assetContext.substring(0, 100)}...`
+          );
+        }
+      } catch (assetError) {
+        console.warn(
+          `⚠️ Could not fetch asset ${document.asset_id}:`,
+          assetError
+        );
+        // Continue without asset context if asset fetch fails
+      }
+    }
+
     // Chunk the content
     const chunks = chunkText(content, chunkSize, chunkOverlap);
 
@@ -146,21 +218,31 @@ export async function chunkDocument({
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i];
 
-      // Approximate token count (rough estimate: 4 chars ~= 1 token)
-      const tokenCount = Math.ceil(chunk.length / 4);
+      // Prepend asset context to each chunk for enhanced searchability
+      const enhancedContent = assetContext + chunk;
 
-      const { error } = await supabase.from("document_chunks").insert({
+      // Approximate token count (rough estimate: 4 chars ~= 1 token)
+      const tokenCount = Math.ceil(enhancedContent.length / 4);
+
+      const chunkData = {
         document_id: documentId,
         chunk_index: i,
-        content: chunk,
-        tokens: tokenCount,
+        content: enhancedContent,
+        user_id: document.user_id,
         metadata: {
           ...metadata,
           fileType: document.file_type,
           chunkNumber: i + 1,
           totalChunks: chunks.length,
+          tokenCount: tokenCount,
+          hasAssetContext: !!assetContext, // Flag to indicate asset context inclusion
+          assetId: document.asset_id || null, // Store asset ID for reference
         },
-      });
+      };
+
+      const { error } = await supabase
+        .from("document_chunks")
+        .insert(chunkData);
 
       if (error) {
         throw new Error(`Error inserting chunk ${i}: ${error.message}`);
@@ -170,8 +252,14 @@ export async function chunkDocument({
     // Update document status
     await supabase
       .from("documents")
-      .update({ status: "chunked" })
+      .update({ status: "completed" })
       .eq("id", documentId);
+
+    console.log(
+      `✅ Document chunking complete: ${chunks.length} chunks created ${
+        assetContext ? "with asset context" : "without asset context"
+      }`
+    );
 
     return { documentId, chunkCount: chunks.length };
   } catch (error) {
@@ -190,90 +278,55 @@ export async function chunkDocument({
 }
 
 /**
- * Generate embeddings for document chunks using OpenAI
+ * Generate embeddings for document chunks using Supabase Edge Function
  */
 export async function generateEmbeddings({
   documentId,
 }: GenerateEmbeddingsParams) {
   try {
-    // Get all chunks for the document without embeddings
-    const { data: chunks, error: chunksError } = await supabase
-      .from("document_chunks")
-      .select("*")
-      .eq("document_id", documentId)
-      .is("embedding", null);
+    console.log(`Starting embedding generation for document ${documentId}`);
 
-    if (chunksError) {
-      throw new Error(`Error getting chunks: ${chunksError.message}`);
-    }
+    // Call the Supabase Edge Function to generate embeddings
+    const { data, error } = await supabase.functions.invoke(
+      "process-document",
+      {
+        body: {
+          action: "generate_embeddings",
+          documentId: documentId,
+        },
+      }
+    );
 
-    if (!chunks || chunks.length === 0) {
-      console.log("No chunks found or all chunks already have embeddings");
-      return { documentId, embeddingCount: 0 };
-    }
-
-    console.log(`Generating embeddings for ${chunks.length} chunks`);
-
-    // Process chunks in batches to avoid rate limits (optional)
-    const batchSize = 10;
-    for (let i = 0; i < chunks.length; i += batchSize) {
-      const batchChunks = chunks.slice(i, i + batchSize);
-
-      // Process a batch of chunks
-      await Promise.all(
-        batchChunks.map(async (chunk) => {
-          try {
-            // Generate embedding with OpenAI API
-            const embeddingResponse = await openai.embeddings.create({
-              model: "text-embedding-3-small",
-              input: chunk.content,
-              encoding_format: "float",
-            });
-
-            const embedding = embeddingResponse.data[0].embedding;
-
-            // Update chunk with embedding
-            const { error: updateError } = await supabase
-              .from("document_chunks")
-              .update({ embedding })
-              .eq("id", chunk.id);
-
-            if (updateError) {
-              throw new Error(
-                `Error updating chunk ${chunk.id} with embedding: ${updateError.message}`
-              );
-            }
-          } catch (error) {
-            console.error(
-              `Error generating embedding for chunk ${chunk.id}:`,
-              error
-            );
-            throw error;
-          }
-        })
+    if (error) {
+      throw new Error(
+        `Error calling process-document function: ${error.message}`
       );
     }
 
-    // Update document and job status
-    await Promise.all([
-      supabase
-        .from("documents")
-        .update({ status: "processed" })
-        .eq("id", documentId),
-      supabase
-        .from("document_processing_jobs")
-        .update({ status: "completed" })
-        .eq("document_id", documentId),
-    ]);
+    if (!data?.success) {
+      throw new Error(
+        `Function returned error: ${data?.error || "Unknown error"}`
+      );
+    }
 
-    return { documentId, embeddingCount: chunks.length };
+    console.log(
+      `Successfully generated ${data.embeddingCount} embeddings for document ${documentId}`
+    );
+
+    // Update job status to completed
+    await supabase
+      .from("document_processing_jobs")
+      .update({ status: "completed" })
+      .eq("document_id", documentId);
+
+    return { documentId, embeddingCount: data.embeddingCount };
   } catch (error) {
     // Update job status to error
     await supabase
       .from("document_processing_jobs")
       .update({
         status: "error",
-        error: error.message,
+        error_message: error.message,
       })
       .eq("document_id", documentId);
 
@@ -283,36 +336,40 @@ export async function generateEmbeddings({
 }
 
 /**
- * Search for similar content using vector similarity
+ * Search for similar content using vector similarity via Supabase Edge Function
  */
 export async function performVectorSearch(
   query: string,
-  projectId: string,
+  userId: string,
   limit = 5
 ) {
   try {
-    // Generate embedding for search query
-    const embeddingResponse = await openai.embeddings.create({
-      model: "text-embedding-3-small",
-      input: query,
-      encoding_format: "float",
-    });
-
-    const embedding = embeddingResponse.data[0].embedding;
-
-    // Query for document chunks with similar embeddings
-    const { data: results, error } = await supabase.rpc("vector_search", {
-      query_embedding: embedding,
-      match_threshold: 0.7,
-      match_count: limit,
-      project_filter: projectId,
-    });
+    // Call the Supabase Edge Function to perform vector search
+    const { data, error } = await supabase.functions.invoke(
+      "process-document",
+      {
+        body: {
+          action: "search_similar",
+          query: query,
+          userId: userId,
+          limit: limit,
+        },
+      }
+    );
 
     if (error) {
-      throw new Error(`Error performing vector search: ${error.message}`);
+      throw new Error(
+        `Error calling process-document function: ${error.message}`
+      );
     }
 
-    return results;
+    if (!data?.success) {
+      throw new Error(
+        `Function returned error: ${data?.error || "Unknown error"}`
+      );
+    }
+
+    return data.results || [];
   } catch (error) {
     console.error("Error in performVectorSearch:", error);
     throw error;

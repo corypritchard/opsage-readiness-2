@@ -52,10 +52,24 @@ serve(async (req) => {
       columns,
       chatMode = "edit",
       projectContext,
-      documentContext,
+      documentContext = [],
       sapIntegration = false,
       metadata,
     } = body;
+
+    // Debug logging for document context
+    console.log("Chat mode:", chatMode);
+    console.log("Document context received:", documentContext);
+    console.log("Document context length:", documentContext?.length || 0);
+    if (documentContext && documentContext.length > 0) {
+      console.log("First document chunk:", documentContext[0]);
+
+      // Log document names to debug grouping
+      const docNames = [
+        ...new Set(documentContext.map((chunk: any) => chunk.document_name)),
+      ];
+      console.log("Unique document names:", docNames);
+    }
 
     if (!query) {
       return new Response("Missing query in request body", { status: 400 });
@@ -69,8 +83,36 @@ serve(async (req) => {
       const commonInstructions = `You are Opsage, an engineering assistant for FMECA analysis. ${tableSchema}`;
 
       if (chatMode === "ask") {
+        let documentSection = "";
+        if (documentContext && documentContext.length > 0) {
+          // Group chunks by document name to avoid confusion
+          const documentGroups = documentContext.reduce(
+            (groups: any, chunk: any) => {
+              const docName = chunk.document_name || "Unknown Document";
+              if (!groups[docName]) {
+                groups[docName] = [];
+              }
+              groups[docName].push(chunk.content);
+              return groups;
+            },
+            {}
+          );
+
+          // Format grouped content clearly
+          const documentContent = Object.entries(documentGroups)
+            .map(
+              ([docName, chunks]: [string, any]) =>
+                `Document: ${docName}\n${(chunks as string[]).join("\n\n")}`
+            )
+            .join("\n\n--- Next Document ---\n\n");
+
+          documentSection = `\n\nRELEVANT DOCUMENTATION:\n${documentContent}\n\nNote: The above content comes from uploaded documents. When referencing information, mention it comes from the relevant document.`;
+        }
+
         return `${commonInstructions}
-Answer questions about FMECA data in plain text. DO NOT output JSON.`;
+Answer questions about FMECA data and equipment based on the provided context. Use information from uploaded documents when available.${documentSection}
+
+Provide clear, specific answers in plain text. DO NOT output JSON.`;
       }
 
       // Optimized edit mode prompt for faster processing

@@ -27,14 +27,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     return "system";
   });
 
-  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">(() => {
-    if (theme === "system") {
-      return window.matchMedia("(prefers-color-scheme: dark)").matches
-        ? "dark"
-        : "light";
-    }
-    return theme as "light" | "dark";
-  });
+  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
 
   useEffect(() => {
     // Save theme to localStorage

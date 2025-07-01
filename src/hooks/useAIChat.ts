@@ -1,6 +1,8 @@
 import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { StagedChanges } from "@/pages/Dashboard";
+import { performVectorSearch } from "@/services/documentProcessingService";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Define a type for the chat messages for clarity
 interface ChatMessage {
@@ -9,6 +11,7 @@ interface ChatMessage {
 }
 
 export const useAIChat = () => {
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,6 +28,42 @@ export const useAIChat = () => {
 
       try {
         const lastUserMessage = messages[messages.length - 1].content;
+
+        // Perform vector search for document context in ask mode
+        let documentContext: any[] = [];
+        if (chatMode === "ask" && user?.id) {
+          try {
+            console.log("Performing vector search for query:", lastUserMessage);
+            console.log("User ID:", user.id);
+            documentContext = await performVectorSearch(
+              lastUserMessage,
+              user.id,
+              5
+            );
+            console.log("Vector search results:", documentContext);
+            console.log(
+              "Document context length:",
+              documentContext?.length || 0
+            );
+            if (documentContext && documentContext.length > 0) {
+              console.log("First result:", documentContext[0]);
+            }
+          } catch (vectorError) {
+            console.error("Vector search failed:", vectorError);
+            console.error(
+              "Error details:",
+              JSON.stringify(vectorError, null, 2)
+            );
+            // Continue without document context if vector search fails
+          }
+        } else {
+          console.log(
+            "Skipping vector search - chatMode:",
+            chatMode,
+            "user ID:",
+            user?.id
+          );
+        }
 
         // Optimize FMECA data sample for faster processing
         const getFmecaDataSample = () => {
@@ -93,6 +132,7 @@ export const useAIChat = () => {
               fmecaData: compressedSample,
               columns,
               chatMode,
+              documentContext,
             },
           }
         );
