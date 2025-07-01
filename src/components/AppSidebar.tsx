@@ -7,6 +7,7 @@ import {
   Wrench,
   Download,
   Settings,
+  Book,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -25,8 +26,8 @@ const NAV_ITEMS = [
   },
   {
     key: "documents",
-    label: "Documents",
-    icon: FileText,
+    label: "Knowledge Base",
+    icon: Book,
     gradient: "btn-primary",
   },
   {

@@ -23,8 +23,11 @@ import {
   Activity,
   FileSpreadsheet,
   FileType,
-  Image,
-  Plus,
+  FileCode,
+  FileArchive,
+  FileAudio,
+  FileVideo,
+  Book,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -75,7 +78,7 @@ const mockDocuments: Document[] = [];
 
 // Supported file types
 const SUPPORTED_FILE_TYPES = {
-  "application/pdf": { type: "PDF", icon: File, color: "text-red-600" },
+  "application/pdf": { type: "PDF", icon: FileText, color: "text-red-600" },
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
     type: "Excel",
     icon: FileSpreadsheet,
@@ -88,12 +91,12 @@ const SUPPORTED_FILE_TYPES = {
   },
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {
     type: "Word",
-    icon: FileType,
+    icon: FileText,
     color: "text-blue-600",
   },
   "application/msword": {
     type: "Word",
-    icon: FileType,
+    icon: FileText,
     color: "text-blue-600",
   },
   "image/png": { type: "Image", icon: FileImage, color: "text-purple-600" },
@@ -101,6 +104,22 @@ const SUPPORTED_FILE_TYPES = {
   "image/jpg": { type: "Image", icon: FileImage, color: "text-purple-600" },
   "image/gif": { type: "Image", icon: FileImage, color: "text-purple-600" },
   "image/webp": { type: "Image", icon: FileImage, color: "text-purple-600" },
+  "text/plain": { type: "Text", icon: FileText, color: "text-gray-600" },
+  "application/zip": {
+    type: "Archive",
+    icon: FileArchive,
+    color: "text-yellow-600",
+  },
+  "application/x-zip-compressed": {
+    type: "Archive",
+    icon: FileArchive,
+    color: "text-yellow-600",
+  },
+  "audio/mpeg": { type: "Audio", icon: FileAudio, color: "text-pink-600" },
+  "audio/wav": { type: "Audio", icon: FileAudio, color: "text-pink-600" },
+  "video/mp4": { type: "Video", icon: FileVideo, color: "text-indigo-600" },
+  "text/csv": { type: "CSV", icon: FileSpreadsheet, color: "text-green-600" },
+  "application/json": { type: "JSON", icon: FileCode, color: "text-gray-600" },
 };
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -501,23 +520,13 @@ export function DocumentsContent({ className }: { className?: string }) {
   };
 
   const getFileIcon = (type: string) => {
-    switch (type.toLowerCase()) {
-      case "pdf":
-        return File;
-      case "excel":
-      case "xlsx":
-        return FileSpreadsheet;
-      case "word":
-      case "docx":
-        return FileType;
-      case "image":
-      case "png":
-      case "jpg":
-      case "jpeg":
-        return FileImage;
-      default:
-        return FileText;
-    }
+    const fileType = SUPPORTED_FILE_TYPES[type.toLowerCase()];
+    return fileType ? fileType.icon : FileType;
+  };
+
+  const getFileTypeLabel = (type: string) => {
+    const fileType = SUPPORTED_FILE_TYPES[type.toLowerCase()];
+    return fileType ? fileType.type : "Other";
   };
 
   return (
@@ -563,14 +572,15 @@ export function DocumentsContent({ className }: { className?: string }) {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="flex h-12 w-12 items-center justify-center rounded-xl icon-primary">
-                    <FileText className="h-6 w-6 text-white" />
+                    <Book className="h-6 w-6 text-white" />
                   </div>
                   <div>
                     <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-                      Documents
+                      Knowledge Base
                     </h1>
                     <p className="text-gray-600 dark:text-gray-400">
-                      Manage and organize your asset documentation
+                      Centralize and manage all knowledge around your project
+                      assets
                     </p>
                   </div>
                   <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
@@ -811,6 +821,9 @@ export function DocumentsContent({ className }: { className?: string }) {
                         Document
                       </th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                        File Type
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                         Asset
                       </th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
@@ -830,6 +843,7 @@ export function DocumentsContent({ className }: { className?: string }) {
                   <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
                     {filteredDocuments.map((doc) => {
                       const FileIcon = getFileIcon(doc.type);
+                      const fileTypeLabel = getFileTypeLabel(doc.type);
                       return (
                         <tr
                           key={doc.id}
@@ -845,9 +859,17 @@ export function DocumentsContent({ className }: { className?: string }) {
                                   {doc.name}
                                 </h4>
                                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                                  {doc.type} • {doc.size}
+                                  {doc.size}
                                 </p>
                               </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2">
+                              <FileIcon className="h-4 w-4" />
+                              <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                {fileTypeLabel}
+                              </span>
                             </div>
                           </td>
                           <td className="px-6 py-4">
@@ -948,14 +970,15 @@ export function DocumentsContent({ className }: { className?: string }) {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="flex h-12 w-12 items-center justify-center rounded-xl icon-primary">
-                    <FileText className="h-6 w-6 text-white" />
+                    <Book className="h-6 w-6 text-white" />
                   </div>
                   <div>
                     <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-                      Documents
+                      Knowledge Base
                     </h1>
                     <p className="text-gray-600 dark:text-gray-400">
-                      Manage and organize your asset documentation
+                      Centralize and manage all knowledge around your project
+                      assets
                     </p>
                   </div>
                 </div>
