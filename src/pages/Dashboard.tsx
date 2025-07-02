@@ -29,7 +29,7 @@ const DashboardContent = () => {
   const [fmecaData, setFmecaData] = useState<any[]>([]);
   const [columns, setColumns] = useState<string[]>([]);
   const [selectedNav, setSelectedNav] = useState("dashboard");
-  const [chatPanelWidth, setChatPanelWidth] = useState(380);
+  const [chatPanelWidth, setChatPanelWidth] = useState(500);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [addChatMessage, setAddChatMessage] = useState<
     ((message: any) => void) | null
@@ -345,9 +345,9 @@ const DashboardContent = () => {
             onRevertChanges={handleRevertChanges}
             hasStagedChanges={!!stagedChanges}
             onResize={handleChatPanelResize}
-            minWidth={320}
-            maxWidth={600}
-            initialWidth={380}
+            minWidth={400}
+            maxWidth={700}
+            initialWidth={500}
             onChatRef={handleChatRef}
           />
         </div>

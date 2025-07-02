@@ -52,7 +52,7 @@ const FeaturesSection = () => {
       <div className="absolute inset-0 pointer-events-none z-0">
         {/* Arc 1 */}
         <svg
-          className="absolute top-8 left-1/3 w-32 h-32 opacity-10"
+          className="absolute top-8 left-1/3 w-44 h-44 opacity-10"
           style={{ transform: `rotate(${arcRotations[0]}deg)` }}
           viewBox="0 0 200 200"
           fill="none"
@@ -66,7 +66,7 @@ const FeaturesSection = () => {
         </svg>
         {/* Arc 2 */}
         <svg
-          className="absolute bottom-0 right-0 w-48 h-48 opacity-20"
+          className="absolute bottom-0 right-0 w-60 h-60 opacity-20"
           style={{ transform: `rotate(${arcRotations[1]}deg)` }}
           viewBox="0 0 200 200"
           fill="none"
@@ -80,7 +80,7 @@ const FeaturesSection = () => {
         </svg>
         {/* Arc 3 */}
         <svg
-          className="absolute top-1/2 left-0 w-28 h-28 opacity-10"
+          className="absolute top-1/2 left-0 w-40 h-40 opacity-10"
           style={{ transform: `rotate(${arcRotations[2]}deg)` }}
           viewBox="0 0 200 200"
           fill="none"

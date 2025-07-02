@@ -1,5 +1,12 @@
 import { useState, useCallback, useEffect } from "react";
-import { Upload, Download, Save, FileSpreadsheet, Table } from "lucide-react";
+import {
+  Upload,
+  Download,
+  Save,
+  FileSpreadsheet,
+  Table,
+  Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TanStackFMECATable } from "./TanStackFMECATable";
@@ -48,7 +55,6 @@ export function FMECAContent({
 }: FMECAContentProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   const [loadedProjectId, setLoadedProjectId] = useState<string | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
@@ -119,7 +125,10 @@ export function FMECAContent({
     }
   };
 
-  const saveFMECADataToDatabase = async (data: any[]) => {
+  const saveFMECADataToDatabase = async (
+    data: any[],
+    columnsToSave?: string[]
+  ) => {
     if (!currentProject || data.length === 0) {
       console.log("Save skipped - no project or no data:", {
         hasProject: !!currentProject,
@@ -128,15 +137,18 @@ export function FMECAContent({
       return;
     }
 
+    // Use provided columns or fall back to current state
+    const columnOrder = columnsToSave || columns;
+
     try {
-      setIsSaving(true);
       console.log(
         "Saving FMECA data to database for project:",
         currentProject.id
       );
       console.log("Data sample being saved:", data[0]);
+      console.log("Column order being saved:", columnOrder);
 
-      await saveFMECAData(currentProject.id, data, columns);
+      await saveFMECAData(currentProject.id, data, columnOrder);
 
       console.log("Successfully saved FMECA data to database");
       toast("FMECA data saved to database!", {
@@ -150,8 +162,6 @@ export function FMECAContent({
           error instanceof Error ? error.message : "Unknown error"
         }`,
       });
-    } finally {
-      setIsSaving(false);
     }
   };
 
@@ -256,8 +266,8 @@ export function FMECAContent({
         setFmecaData(data);
         setColumns(parsedColumns);
 
-        // Auto-save to database after successful parsing
-        await saveFMECADataToDatabase(data);
+        // Auto-save to database after successful parsing with correct column order
+        await saveFMECADataToDatabase(data, parsedColumns);
 
         toast("File uploaded and processed successfully!", {
           description: `Loaded ${data.length} entries with ${parsedColumns.length} columns`,
@@ -299,8 +309,8 @@ export function FMECAContent({
       setColumns(sampleColumns);
       setSelectedFile(null);
 
-      // Auto-save sample data to database
-      await saveFMECADataToDatabase(sampleFMECAData);
+      // Auto-save sample data to database with correct column order
+      await saveFMECADataToDatabase(sampleFMECAData, sampleColumns);
 
       toast("Sample FMECA data loaded successfully!", {
         description: `Loaded ${sampleFMECAData.length} sample entries`,
@@ -354,22 +364,13 @@ export function FMECAContent({
     }
   }, [fmecaData, columns]);
 
-  const handleManualSave = async () => {
-    if (!currentProject) {
-      toast("No project selected", {
-        description: "Please select a project first.",
-      });
-      return;
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleFileUpload(file);
     }
-
-    if (!fmecaData.length) {
-      toast("No data to save", {
-        description: "Please load or upload FMECA data first.",
-      });
-      return;
-    }
-
-    await saveFMECADataToDatabase(fmecaData);
+    // Reset the input value so the same file can be selected again
+    e.target.value = "";
   };
 
   if (isLoading) {
@@ -401,7 +402,7 @@ export function FMECAContent({
                   </div>
                   <div>
                     <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-                      FMECA Analysis
+                      FMECA
                     </h1>
                     <p className="text-gray-600 dark:text-gray-400">
                       {selectedFile
@@ -421,14 +422,17 @@ export function FMECAContent({
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <Button
-                    variant="outline"
-                    onClick={handleLoadSampleData}
-                    className="h-11"
-                  >
+                  <label className="inline-flex items-center h-11 px-4 py-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md text-sm font-medium cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50">
                     <Upload className="h-4 w-4 mr-2" />
-                    Load Sample
-                  </Button>
+                    Import
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept=".xlsx,.xls"
+                      onChange={handleFileInputChange}
+                      disabled={isProcessing}
+                    />
+                  </label>
                   <Button
                     variant="outline"
                     onClick={handleExport}
@@ -438,21 +442,13 @@ export function FMECAContent({
                     <Download className="h-4 w-4 mr-2" />
                     Export
                   </Button>
-                  <Button
-                    onClick={handleManualSave}
-                    disabled={!fmecaData.length || !currentProject || isSaving}
-                    className="h-11 btn-primary"
-                  >
-                    <Save className="h-4 w-4 mr-2" />
-                    {isSaving ? "Saving..." : "Save to Database"}
-                  </Button>
                   <Dialog
                     open={showDeleteDialog}
                     onOpenChange={setShowDeleteDialog}
                   >
                     <DialogTrigger asChild>
                       <Button variant="destructive" className="h-11 ml-2">
-                        Delete Table
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </DialogTrigger>
                     <DialogContent>
@@ -504,7 +500,7 @@ export function FMECAContent({
             </div>
 
             {/* FMECA Table */}
-            <div className="flex-1 min-h-0 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+            <div className="flex-1 min-h-0 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden text-sm">
               <TanStackFMECATable
                 data={fmecaData}
                 columns={columns.map((col) => ({
@@ -527,7 +523,7 @@ export function FMECAContent({
                   </div>
                   <div>
                     <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-                      FMECA Analysis
+                      FMECA
                     </h1>
                     <p className="text-gray-600 dark:text-gray-400">
                       Failure Mode, Effects, and Criticality Analysis
@@ -536,14 +532,17 @@ export function FMECAContent({
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <Button
-                    variant="outline"
-                    onClick={handleLoadSampleData}
-                    className="h-11"
-                  >
+                  <label className="inline-flex items-center h-11 px-4 py-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md text-sm font-medium cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50">
                     <Upload className="h-4 w-4 mr-2" />
-                    Load Sample
-                  </Button>
+                    Import
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept=".xlsx,.xls"
+                      onChange={handleFileInputChange}
+                      disabled={isProcessing}
+                    />
+                  </label>
                   <Button
                     variant="outline"
                     onClick={handleExport}
@@ -553,21 +552,13 @@ export function FMECAContent({
                     <Download className="h-4 w-4 mr-2" />
                     Export
                   </Button>
-                  <Button
-                    onClick={handleManualSave}
-                    disabled={!fmecaData.length || !currentProject || isSaving}
-                    className="h-11 btn-primary"
-                  >
-                    <Save className="h-4 w-4 mr-2" />
-                    {isSaving ? "Saving..." : "Save to Database"}
-                  </Button>
                   <Dialog
                     open={showDeleteDialog}
                     onOpenChange={setShowDeleteDialog}
                   >
                     <DialogTrigger asChild>
                       <Button variant="destructive" className="h-11 ml-2">
-                        Delete Table
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </DialogTrigger>
                     <DialogContent>

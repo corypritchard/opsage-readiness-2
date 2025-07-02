@@ -116,9 +116,15 @@ serve(async (req) => {
             const assetName =
               firstChunk?.metadata?.assetName || "Unknown Asset";
             const assetType = firstChunk?.metadata?.assetType || "Unknown Type";
-            return `Document: ${docName} (Asset: ${assetName} | Type: ${assetType})\n${(
-              chunks as string[]
-            ).join("\n\n")}`;
+            const assetFLOC = firstChunk?.metadata?.assetFLOC || "Unknown FLOC";
+            return `=== ASSET CONTEXT ===
+Asset Name: ${assetName}
+Asset Type: ${assetType}
+FLOC: ${assetFLOC}
+Document: ${docName}
+
+=== DOCUMENT CONTENT ===
+${(chunks as string[]).join("\n\n")}`;
           })
           .join("\n\n--- Next Document ---\n\n");
 
@@ -162,7 +168,10 @@ Edit mode for ADD operation: Return JSON with "response" and "newRows" propertie
 - "newRows": Array containing ONLY the new row(s) to be added, with ALL columns: ${columns?.join(
           ", "
         )}
-Use the provided documentation to create accurate and detailed FMECA entries based on the user's request.${documentSection}
+
+CRITICAL: When adding FMECA rows, prioritize the asset information from the document context over existing FMECA data examples. The asset context (Asset: X | Type: Y | FLOC: Z) indicates the specific equipment type and should be used to determine the appropriate components and failure modes.
+
+Use the provided documentation to create accurate and detailed FMECA entries based on the user's request and the specific asset type mentioned.${documentSection}
 Do NOT return the complete dataset. Only return the new rows that should be added.`;
       } else if (isRemoveOperation) {
         return `${commonInstructions}
@@ -229,10 +238,24 @@ For modifications/deletions: Return the complete updated dataset.`;
               row["Asset Type"]?.toLowerCase().includes(equipmentType) ||
               row["Component"]?.toLowerCase().includes(equipmentType)
           )
-          .slice(0, 3); // Max 3 similar examples
+          .slice(0, 5); // Increased to 5 similar examples for better context
 
-        const randomSamples = fmecaData.slice(0, 2); // 2 general examples
-        return [...new Set([...similarRows, ...randomSamples])]; // Remove duplicates
+        // If we found similar equipment, prioritize those examples
+        if (similarRows.length > 0) {
+          const randomSamples = fmecaData
+            .filter((row) => !similarRows.includes(row))
+            .slice(0, 2); // 2 general examples from different equipment
+          return [...new Set([...similarRows, ...randomSamples])];
+        } else {
+          // If no similar equipment found, send a mix of different types
+          const pumpRows = fmecaData.filter((row) =>
+            row["Asset Type"]?.toLowerCase().includes("pump")
+          );
+          const otherRows = fmecaData
+            .filter((row) => !row["Asset Type"]?.toLowerCase().includes("pump"))
+            .slice(0, 3);
+          return [...new Set([...pumpRows, ...otherRows])];
+        }
       }
 
       if (lowerQuery.includes("update") || lowerQuery.includes("modify")) {
@@ -288,9 +311,23 @@ For modifications/deletions: Return the complete updated dataset.`;
         "screen",
       ];
 
+      // First check for explicit equipment type mentions
       for (const type of equipmentTypes) {
         if (lowerQuery.includes(type)) return type;
       }
+
+      // If no explicit type found, check for FLOC patterns that might indicate equipment type
+      // Common FLOC patterns: PPC (Pump), MCC (Motor), CCV (Conveyor), etc.
+      if (lowerQuery.includes("ppc")) return "pump";
+      if (lowerQuery.includes("mcc")) return "motor";
+      if (lowerQuery.includes("ccv")) return "conveyor";
+      if (lowerQuery.includes("fdr")) return "feeder";
+      if (lowerQuery.includes("elv")) return "elevator";
+      if (lowerQuery.includes("cmp")) return "compressor";
+      if (lowerQuery.includes("vlv")) return "valve";
+      if (lowerQuery.includes("crs")) return "crusher";
+      if (lowerQuery.includes("scn")) return "screen";
+
       return "";
     }
 

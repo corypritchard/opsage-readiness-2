@@ -463,6 +463,7 @@ export class FMECAAgent {
   private projectId: string;
   private thinking: string[] = [];
   private onThinkingUpdate?: (thought: string) => void;
+  private currentColumns: string[] = [];
 
   constructor(projectId: string, onThinkingUpdate?: (thought: string) => void) {
     this.projectId = projectId;
@@ -659,8 +660,8 @@ export class FMECAAgent {
     const oldValue = newData[rowIndex][column_name];
     newData[rowIndex][column_name] = new_value;
 
-    // Save to database
-    await saveFMECAData(this.projectId, newData);
+    // Save to database with column order
+    await saveFMECAData(this.projectId, newData, this.currentColumns);
 
     return {
       result: {
@@ -682,8 +683,8 @@ export class FMECAAgent {
     const { row_data } = args;
     const newData = [...currentData, row_data];
 
-    // Save to database
-    await saveFMECAData(this.projectId, newData);
+    // Save to database with column order
+    await saveFMECAData(this.projectId, newData, this.currentColumns);
 
     return {
       result: {
@@ -727,8 +728,8 @@ export class FMECAAgent {
     const removedRow = currentData[rowIndex];
     const newData = currentData.filter((_, index) => index !== rowIndex);
 
-    // Save to database
-    await saveFMECAData(this.projectId, newData);
+    // Save to database with column order
+    await saveFMECAData(this.projectId, newData, this.currentColumns);
 
     return {
       result: {
@@ -770,8 +771,8 @@ export class FMECAAgent {
     });
 
     if (modifiedCount > 0) {
-      // Save to database
-      await saveFMECAData(this.projectId, newData);
+      // Save to database with column order
+      await saveFMECAData(this.projectId, newData, this.currentColumns);
     }
 
     return {
@@ -903,6 +904,7 @@ export class FMECAAgent {
     columns: string[]
   ): Promise<AgentResponse> {
     this.thinking = [];
+    this.currentColumns = columns; // Store columns for use in save operations
     this.addThinking(`Received user request: "${userMessage}"`);
     this.addThinking(`Current FMECA data contains ${currentData.length} rows`);
 

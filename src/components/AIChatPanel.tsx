@@ -18,6 +18,7 @@ import {
   BarChart3,
   RefreshCw,
   Edit3,
+  Upload,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,34 @@ import { StagedChanges } from "@/pages/Dashboard";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { FileUploadZone } from "@/components/FileUploadZone";
 import { useTheme } from "@/contexts/ThemeContext";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useDocumentProcessor } from "@/hooks/useDocumentProcessor";
+import { useAuth } from "@/contexts/AuthContext";
+import { getAssets } from "@/integrations/supabase/assets";
+import {
+  FileText,
+  FileImage,
+  FileSpreadsheet,
+  FileCode,
+  FileArchive,
+  FileAudio,
+  FileVideo,
+} from "lucide-react";
 import {
   AgentMessage,
   AgentResponse,
@@ -62,10 +91,10 @@ const WelcomeMessage: React.FC<{
 }> = ({ onPromptClick }) => {
   const { resolvedTheme } = useTheme();
   const prompts = [
-    "Show me all high-risk items with severity level 4 or 5",
-    "Add a new pump failure analysis for centrifugal pump bearing failure",
-    "Update the severity level for conveyor belt motor to 3",
-    "Analyze the data for completeness issues",
+    "Add rows to my FMECA based on the documentation provided for Pump PPC001",
+    "Update all financial risk severity at a level 5 to a level 4",
+    "What are the components of CVR001 that I should capture failure modes for?",
+    "What maintenance tasks should I prioritize based on my current FMECA data?",
   ];
 
   return (
@@ -80,27 +109,58 @@ const WelcomeMessage: React.FC<{
       </div>
 
       {/* Modern Typography */}
-      <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent mb-2">
+      <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
         Opsage Assistant
       </h2>
-      <p className="text-gray-600 dark:text-gray-400 mb-8 max-w-sm leading-relaxed">
-        I can help you analyze, modify, and gain insights from your FMECA data
-        with AI-powered assistance.
+      <p className="text-gray-600 dark:text-gray-400 mb-8 max-w-md leading-relaxed">
+        Opsage Assistant helps you build and refine your operational readiness
+        data. Upload documents, generate FMECA tables, create maintenance tasks,
+        and streamline the entire process with guided support.
       </p>
 
       {/* Modern Prompt Cards */}
-      <div className="space-y-3 w-full max-w-sm">
-        {prompts.map((prompt, index) => (
-          <button
-            key={index}
-            onClick={() => onPromptClick(prompt)}
-            className="w-full p-4 text-left bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-sm transition-all duration-200 group"
-          >
-            <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-              {prompt}
-            </p>
-          </button>
-        ))}
+      <div className="space-y-4 w-full max-w-md">
+        {/* Edit Mode Examples */}
+        <div>
+          <h3 className="text-xs font-semibold text-green-600 dark:text-green-400 mb-2 flex items-center gap-1">
+            <Edit className="h-3 w-3" />
+            EDIT MODE
+          </h3>
+          <div className="space-y-2">
+            {prompts.slice(0, 2).map((prompt, index) => (
+              <button
+                key={index}
+                onClick={() => onPromptClick(prompt)}
+                className="w-full p-3 text-left bg-white dark:bg-gray-800 border border-green-200 dark:border-green-700 rounded-lg hover:border-green-300 dark:hover:border-green-600 hover:shadow-sm transition-all duration-200 group"
+              >
+                <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                  {prompt}
+                </p>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Ask Mode Examples */}
+        <div>
+          <h3 className="text-xs font-semibold text-orange-600 dark:text-orange-400 mb-2 flex items-center gap-1">
+            <HelpCircle className="h-3 w-3" />
+            ASK MODE
+          </h3>
+          <div className="space-y-2">
+            {prompts.slice(2, 4).map((prompt, index) => (
+              <button
+                key={index + 2}
+                onClick={() => onPromptClick(prompt)}
+                className="w-full p-3 text-left bg-white dark:bg-gray-800 border border-orange-200 dark:border-orange-700 rounded-lg hover:border-orange-300 dark:hover:border-orange-600 hover:shadow-sm transition-all duration-200 group"
+              >
+                <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                  {prompt}
+                </p>
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -186,12 +246,66 @@ const FunctionCallDisplay: React.FC<{ functionCall: FunctionCall }> = ({
   );
 };
 
-// Mock asset list for demo
-const mockAssets = [
-  { id: "1", name: "Pump 101" },
-  { id: "2", name: "Compressor A" },
-  { id: "3", name: "Conveyor Belt 5" },
-];
+// Supported file types (same as Knowledge Base)
+const SUPPORTED_FILE_TYPES = {
+  "application/pdf": { type: "PDF", icon: FileText, color: "text-red-600" },
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+    type: "Excel",
+    icon: FileSpreadsheet,
+    color: "text-green-600",
+  },
+  "application/vnd.ms-excel": {
+    type: "Excel",
+    icon: FileSpreadsheet,
+    color: "text-green-600",
+  },
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {
+    type: "Word",
+    icon: FileText,
+    color: "text-blue-600",
+  },
+  "application/msword": {
+    type: "Word",
+    icon: FileText,
+    color: "text-blue-600",
+  },
+  "image/png": { type: "Image", icon: FileImage, color: "text-purple-600" },
+  "image/jpeg": { type: "Image", icon: FileImage, color: "text-purple-600" },
+  "image/jpg": { type: "Image", icon: FileImage, color: "text-purple-600" },
+  "image/gif": { type: "Image", icon: FileImage, color: "text-purple-600" },
+  "image/webp": { type: "Image", icon: FileImage, color: "text-purple-600" },
+  "text/plain": { type: "Text", icon: FileText, color: "text-gray-600" },
+  "application/zip": {
+    type: "Archive",
+    icon: FileArchive,
+    color: "text-yellow-600",
+  },
+  "application/x-zip-compressed": {
+    type: "Archive",
+    icon: FileArchive,
+    color: "text-yellow-600",
+  },
+  "audio/mpeg": { type: "Audio", icon: FileAudio, color: "text-pink-600" },
+  "audio/wav": { type: "Audio", icon: FileAudio, color: "text-pink-600" },
+  "video/mp4": { type: "Video", icon: FileVideo, color: "text-indigo-600" },
+  "text/csv": { type: "CSV", icon: FileSpreadsheet, color: "text-green-600" },
+  "application/json": { type: "JSON", icon: FileCode, color: "text-gray-600" },
+};
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+
+interface Asset {
+  id: string;
+  name: string;
+  type: string;
+  location?: string | null;
+  specifications?: any;
+}
+
+// Custom paragraph renderer to tighten spacing
+const MarkdownParagraph: React.FC<any> = ({ node, ...props }) => (
+  <p className="mb-2 last:mb-0" {...props} />
+);
 
 export function AIChatPanel({
   className,
@@ -309,19 +423,28 @@ export function AIChatPanel({
       deleted,
     };
   };
+  const { user } = useAuth();
+  const { currentProject } = useProject();
+  const { processFile, isProcessing, processingResults, clearResults } =
+    useDocumentProcessor();
+
   const [chatMode, setChatMode] = useState<"edit" | "ask">("edit");
   const [messages, setMessages] = useState<AgentMessage[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
-  const [showDocModal, setShowDocModal] = useState(false);
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [selectedAsset, setSelectedAsset] = useState(mockAssets[0].id);
-  const [docDescription, setDocDescription] = useState("");
-  const [isDocProcessing, setIsDocProcessing] = useState(false);
+
+  // Upload dialog state (matching Knowledge Base)
+  const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const [uploadFiles, setUploadFiles] = useState<File[]>([]);
+  const [uploadAssetId, setUploadAssetId] = useState("");
+  const [uploadDescription, setUploadDescription] = useState("");
+  const [dragActive, setDragActive] = useState(false);
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [isLoadingAssets, setIsLoadingAssets] = useState(true);
+
   const { resolvedTheme } = useTheme();
-  const { currentProject } = useProject();
   const { sendMessage } = useAIChat();
 
   // Function to add a message from external components
@@ -587,20 +710,185 @@ export function AIChatPanel({
     setInputValue(prompt);
   };
 
-  const handleDocUpload = (file: File) => {
-    setUploadedFile(file);
+  // Upload functionality (same as Knowledge Base)
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const sizes = ["Bytes", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
-  const handleDocSubmit = (e: React.FormEvent) => {
+  // Load assets from database
+  const loadAssets = async () => {
+    if (!currentProject?.id) {
+      setAssets([]);
+      setIsLoadingAssets(false);
+      return;
+    }
+
+    try {
+      setIsLoadingAssets(true);
+      const { data: assetsData } = await getAssets(currentProject.id);
+      setAssets(assetsData);
+    } catch (error) {
+      console.error("Error loading assets:", error);
+      toast("Error loading assets", {
+        description: "Failed to load assets from database.",
+      });
+      setAssets([]);
+    } finally {
+      setIsLoadingAssets(false);
+    }
+  };
+
+  // Load assets when component mounts or project changes
+  useEffect(() => {
+    loadAssets();
+  }, [currentProject?.id]);
+
+  const validateFile = (file: File): string | null => {
+    if (file.size > MAX_FILE_SIZE) {
+      return `File "${
+        file.name
+      }" is too large. Maximum size is ${formatFileSize(MAX_FILE_SIZE)}.`;
+    }
+    return null;
+  };
+
+  const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
-    setIsDocProcessing(true);
-    setTimeout(() => {
-      setIsDocProcessing(false);
-      setShowDocModal(false);
-      setUploadedFile(null);
-      setDocDescription("");
-      toast("Document processed successfully!");
-    }, 2000);
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+
+    const droppedFiles = Array.from(e.dataTransfer.files);
+    const validFiles: File[] = [];
+    const errors: string[] = [];
+
+    droppedFiles.forEach((file) => {
+      const error = validateFile(file);
+      if (error) {
+        errors.push(error);
+      } else {
+        validFiles.push(file);
+      }
+    });
+
+    if (errors.length > 0) {
+      toast("Some files were rejected", {
+        description: errors.join(" "),
+      });
+    }
+
+    if (validFiles.length > 0) {
+      setUploadFiles((prev) => [...prev, ...validFiles]);
+    }
+  };
+
+  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(e.target.files || []);
+    const validFiles: File[] = [];
+    const errors: string[] = [];
+
+    selectedFiles.forEach((file) => {
+      const error = validateFile(file);
+      if (error) {
+        errors.push(error);
+      } else {
+        validFiles.push(file);
+      }
+    });
+
+    if (errors.length > 0) {
+      toast("Some files were rejected", {
+        description: errors.join(" "),
+      });
+    }
+
+    if (validFiles.length > 0) {
+      setUploadFiles((prev) => [...prev, ...validFiles]);
+    }
+
+    // Reset the input
+    e.target.value = "";
+  };
+
+  const removeUploadFile = (index: number) => {
+    setUploadFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleUpload = async () => {
+    if (uploadFiles.length === 0 || !uploadAssetId || !user?.id) return;
+
+    try {
+      for (const file of uploadFiles) {
+        const result = await processFile(
+          file,
+          uploadAssetId,
+          uploadDescription,
+          user.id
+        );
+
+        if (!result.success) {
+          throw new Error(result.error || "Failed to process file");
+        }
+      }
+
+      toast("Documents uploaded successfully!", {
+        description: `${uploadFiles.length} file(s) processed and indexed.`,
+      });
+
+      // Reset form
+      setUploadFiles([]);
+      setUploadAssetId("");
+      setUploadDescription("");
+      setShowUploadDialog(false);
+    } catch (error) {
+      console.error("Error uploading files:", error);
+      toast("Upload failed", {
+        description:
+          error instanceof Error ? error.message : "An unknown error occurred",
+      });
+    }
+  };
+
+  const getFileIconBgColor = (type: string) => {
+    const fileType =
+      SUPPORTED_FILE_TYPES[type as keyof typeof SUPPORTED_FILE_TYPES];
+    if (!fileType) return "bg-gray-500";
+
+    switch (fileType.type) {
+      case "PDF":
+        return "bg-red-500";
+      case "Excel":
+      case "CSV":
+        return "bg-green-500";
+      case "Word":
+      case "Text":
+        return "bg-blue-500";
+      case "Image":
+        return "bg-purple-500";
+      case "Archive":
+        return "bg-yellow-500";
+      case "Audio":
+        return "bg-pink-500";
+      case "Video":
+        return "bg-indigo-500";
+      case "JSON":
+        return "bg-gray-500";
+      default:
+        return "bg-gray-500";
+    }
   };
 
   return (
@@ -649,13 +937,19 @@ export function AIChatPanel({
                             : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-bl-md"
                         )}
                       >
-                        <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
-                          {message.role === "assistant" ? (
-                            <ReactMarkdown>{message.content}</ReactMarkdown>
-                          ) : (
-                            message.content
-                          )}
-                        </p>
+                        {message.role === "assistant" ? (
+                          <div className="text-sm leading-relaxed break-words">
+                            <ReactMarkdown
+                              components={{ p: MarkdownParagraph }}
+                            >
+                              {message.content}
+                            </ReactMarkdown>
+                          </div>
+                        ) : (
+                          <p className="text-sm leading-relaxed break-words">
+                            {message.content}
+                          </p>
+                        )}
                       </div>
 
                       {/* Function Calls Display */}
@@ -764,8 +1058,23 @@ export function AIChatPanel({
                   onKeyPress={handleKeyPress}
                   disabled={isLoading || hasStagedChanges}
                   rows={2}
-                  className="w-full py-3 px-4 border border-gray-300 dark:border-gray-600 focus:border-blue-500 dark:focus:border-blue-400 rounded-xl resize-none bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-colors"
-                  style={{ minHeight: "60px", maxHeight: "120px" }}
+                  className={cn(
+                    "w-full py-3 px-4 border rounded-xl resize-none bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none transition-all duration-200",
+                    hasStagedChanges
+                      ? "border-gray-300 dark:border-gray-600 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+                      : chatMode === "edit"
+                      ? "border-green-300 dark:border-green-600 focus:border-green-500 dark:focus:border-green-400 focus:ring-2 focus:ring-green-500/20"
+                      : "border-orange-300 dark:border-orange-600 focus:border-orange-500 dark:focus:border-orange-400 focus:ring-2 focus:ring-orange-500/20"
+                  )}
+                  style={{
+                    minHeight: "60px",
+                    maxHeight: "120px",
+                    boxShadow: hasStagedChanges
+                      ? "none"
+                      : chatMode === "edit"
+                      ? "0 0 8px rgba(34, 197, 94, 0.15)"
+                      : "0 0 8px rgba(249, 115, 22, 0.15)",
+                  }}
                 />
               </div>
             </div>
@@ -803,100 +1112,199 @@ export function AIChatPanel({
               </div>
 
               {/* Enhanced Upload Button */}
-              <Button
-                variant="outline"
-                onClick={() => setShowDocModal(true)}
-                className="flex-1 h-10 border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 rounded-xl text-gray-700 dark:text-gray-300"
+              <Dialog
+                open={showUploadDialog}
+                onOpenChange={setShowUploadDialog}
               >
-                <svg
-                  className="h-4 w-4 mr-2"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4"
-                  />
-                </svg>
-                Upload Document
-              </Button>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="flex-1 h-10 border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 rounded-xl text-gray-700 dark:text-gray-300"
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Upload Document
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>Upload Documents</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-6">
+                    {/* File Upload Zone */}
+                    <div className="space-y-4">
+                      <Label>Select Files</Label>
+                      <div
+                        className={cn(
+                          "border-2 border-dashed rounded-lg p-8 text-center transition-colors",
+                          dragActive
+                            ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                            : "border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500"
+                        )}
+                        onDragEnter={handleDrag}
+                        onDragLeave={handleDrag}
+                        onDragOver={handleDrag}
+                        onDrop={handleDrop}
+                      >
+                        <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                          Drop files here or click to browse
+                        </h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                          Supports PDF, Excel, Word documents, and images (max
+                          10MB each)
+                        </p>
+                        <input
+                          type="file"
+                          multiple
+                          accept=".pdf,.xlsx,.xls,.docx,.doc,.png,.jpg,.jpeg,.gif,.webp"
+                          onChange={handleFileInput}
+                          className="hidden"
+                          id="file-upload-chat"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() =>
+                            document.getElementById("file-upload-chat")?.click()
+                          }
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Choose Files
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Selected Files */}
+                    {uploadFiles.length > 0 && (
+                      <div className="space-y-2">
+                        <Label>Selected Files ({uploadFiles.length})</Label>
+                        <div className="max-h-40 overflow-y-auto space-y-2">
+                          {uploadFiles.map((file, index) => {
+                            const fileType =
+                              SUPPORTED_FILE_TYPES[
+                                file.type as keyof typeof SUPPORTED_FILE_TYPES
+                              ];
+                            const FileIcon = fileType?.icon || FileText;
+                            return (
+                              <div
+                                key={index}
+                                className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                              >
+                                <div
+                                  className={`flex h-10 w-10 items-center justify-center rounded-lg ${getFileIconBgColor(
+                                    file.type
+                                  )}`}
+                                >
+                                  <FileIcon className="h-5 w-5 text-white" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                    {file.name}
+                                  </p>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                                    {fileType?.type || "Unknown"} •{" "}
+                                    {formatFileSize(file.size)}
+                                  </p>
+                                </div>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => removeUploadFile(index)}
+                                  className="h-8 w-8 p-0 text-gray-400 hover:text-red-500"
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Asset Selection */}
+                    <div className="space-y-2">
+                      <Label htmlFor="asset">Associated Asset *</Label>
+                      <Select
+                        value={uploadAssetId}
+                        onValueChange={setUploadAssetId}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select an asset" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {isLoadingAssets ? (
+                            <SelectItem value="" disabled>
+                              Loading assets...
+                            </SelectItem>
+                          ) : assets.length === 0 ? (
+                            <SelectItem value="" disabled>
+                              No assets available
+                            </SelectItem>
+                          ) : (
+                            assets.map((asset) => (
+                              <SelectItem key={asset.id} value={asset.id}>
+                                {asset.name}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Description */}
+                    <div className="space-y-2">
+                      <Label htmlFor="description">
+                        Description (Optional)
+                      </Label>
+                      <Textarea
+                        id="description"
+                        placeholder="Add a description for these documents..."
+                        value={uploadDescription}
+                        onChange={(e) => setUploadDescription(e.target.value)}
+                        rows={3}
+                      />
+                    </div>
+
+                    {/* Upload Button */}
+                    <div className="flex justify-end gap-3">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setShowUploadDialog(false)}
+                        disabled={isProcessing}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleUpload}
+                        disabled={
+                          isProcessing ||
+                          uploadFiles.length === 0 ||
+                          !uploadAssetId
+                        }
+                        className="btn-primary"
+                      >
+                        {isProcessing ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                            Uploading...
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="h-4 w-4 mr-2" />
+                            Upload {uploadFiles.length} File
+                            {uploadFiles.length !== 1 ? "s" : ""}
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
           </div>
         </div>
-
-        {/* Document Upload Modal */}
-        {showDocModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-            <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md relative">
-              <button
-                className="absolute top-2 right-2 text-gray-400 hover:text-gray-700"
-                onClick={() => {
-                  setShowDocModal(false);
-                  setUploadedFile(null);
-                  setDocDescription("");
-                }}
-                aria-label="Close"
-              >
-                <X className="w-5 h-5" />
-              </button>
-              <h2 className="text-lg font-semibold mb-4">Upload Any File</h2>
-              {!uploadedFile ? (
-                <FileUploadZone
-                  onFileUpload={handleDocUpload}
-                  isProcessing={isDocProcessing}
-                  accept="*"
-                  label="Choose a file to upload"
-                  description="You can upload images (JPG, PNG), Excel, PDF, or any other file type."
-                />
-              ) : (
-                <form onSubmit={handleDocSubmit} className="space-y-4">
-                  <div>
-                    <div className="font-medium mb-1">
-                      File: {uploadedFile.name}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Select Asset
-                    </label>
-                    <select
-                      className="border rounded px-3 py-2 w-full"
-                      value={selectedAsset}
-                      onChange={(e) => setSelectedAsset(e.target.value)}
-                    >
-                      {mockAssets.map((asset) => (
-                        <option key={asset.id} value={asset.id}>
-                          {asset.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Description
-                    </label>
-                    <Input
-                      placeholder="Short description for AI context..."
-                      value={docDescription}
-                      onChange={(e) => setDocDescription(e.target.value)}
-                      maxLength={120}
-                    />
-                  </div>
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={isDocProcessing}
-                  >
-                    {isDocProcessing ? "Linking..." : "Link Document"}
-                  </Button>
-                </form>
-              )}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

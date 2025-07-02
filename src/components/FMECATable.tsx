@@ -230,7 +230,18 @@ export function FMECATable({ data, columns, onDataChange }: FMECATableProps) {
                         }
                       >
                         <span className="break-words whitespace-pre-wrap w-full leading-relaxed">
-                          {row[column]}
+                          {(() => {
+                            const value = row[column] || "";
+                            // Split at each numbered marker, keeping the marker
+                            const items = value
+                              .split(/(?=\d+\))/g)
+                              .map((s) => s.trim())
+                              .filter(Boolean);
+                            if (items.length <= 1) return value;
+                            return items.map((item, idx) => (
+                              <div key={idx}>{item}</div>
+                            ));
+                          })()}
                         </span>
                       </div>
                     )}

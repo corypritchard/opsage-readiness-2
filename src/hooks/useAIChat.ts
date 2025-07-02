@@ -6,14 +6,16 @@ import { useAuth } from "@/contexts/AuthContext";
 
 // Define a type for the chat messages for clarity
 interface ChatMessage {
-  type: "user" | "ai";
+  type: "user" | "ai" | "system";
   content: string;
+  timestamp: Date;
 }
 
 export const useAIChat = () => {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [summary, setSummary] = useState<string>("");
 
   const sendMessage = useCallback(
     async (
@@ -27,6 +29,19 @@ export const useAIChat = () => {
       setError(null);
 
       try {
+        const systemSummaryMessage = summary
+          ? [
+              {
+                id: "summary",
+                type: "system" as const,
+                content: `Conversation summary so far:\n${summary}`,
+                timestamp: new Date(),
+              },
+            ]
+          : [];
+
+        const messagesWithSummary = [...systemSummaryMessage, ...messages];
+
         const lastUserMessage = messages[messages.length - 1].content;
 
         // Perform vector search for document context in both ask and edit modes
@@ -247,6 +262,11 @@ export const useAIChat = () => {
           updatedData = undefined;
         }
 
+        // After getting data, update summary
+        setSummary((prev) =>
+          summariseConversation(prev, lastUserMessage, textResponse)
+        );
+
         return {
           response: textResponse,
           updatedData,
@@ -274,4 +294,15 @@ export const useAIChat = () => {
   );
 
   return { sendMessage, isLoading, error };
+};
+
+// Simple summariser: keep first 1000 chars, add latest message snippets
+const summariseConversation = (
+  currentSummary: string,
+  userMsg: string,
+  assistantMsg: string
+): string => {
+  const newPart = `User: ${userMsg}\nAssistant: ${assistantMsg}`;
+  const combined = currentSummary ? currentSummary + "\n" + newPart : newPart;
+  return combined.length > 1000 ? combined.slice(-1000) : combined;
 };

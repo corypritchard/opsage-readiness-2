@@ -1248,13 +1248,6 @@ export function DocumentsContent({ className }: { className?: string }) {
                     <Upload className="h-4 w-4 mr-2" />
                     Upload Your First Document
                   </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowUploadDialog(true)}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Browse Files
-                  </Button>
                 </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-4">
                   Supports PDF, Excel, Word documents, and images (max 10MB

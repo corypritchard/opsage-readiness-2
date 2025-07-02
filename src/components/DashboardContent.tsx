@@ -15,6 +15,9 @@ import {
   getFMECAData,
   getMaintenanceTasks,
 } from "@/integrations/supabase/maintenance-tasks";
+import { getAssets } from "@/integrations/supabase/assets";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface ProjectStats {
   equipmentCount: number;
@@ -34,6 +37,7 @@ interface RecentAction {
 
 export function DashboardContent() {
   const { currentProject } = useProject();
+  const { user } = useAuth();
   const [stats, setStats] = useState<ProjectStats>({
     equipmentCount: 0,
     fmecaRowsCount: 0,
@@ -60,29 +64,35 @@ export function DashboardContent() {
   }, [currentProject]);
 
   const loadProjectStats = async () => {
-    if (!currentProject) return;
+    if (!currentProject || !user) return;
 
     try {
       setLoading(true);
 
-      // Get FMECA data to count rows and equipment
+      // Get real assets count from assets table
+      const { data: assetsData } = await getAssets(currentProject.id);
+      const equipmentCount = assetsData.length;
+
+      // Get FMECA data to count rows
       const fmecaResult = await getFMECAData(currentProject.id);
       const fmecaRowsCount = fmecaResult.data.length;
-
-      // Count unique equipment/assets from FMECA data
-      const equipmentSet = new Set();
-      fmecaResult.data.forEach((row) => {
-        if (row["Asset Type"]) equipmentSet.add(row["Asset Type"]);
-        if (row["Component"]) equipmentSet.add(row["Component"]);
-      });
-      const equipmentCount = equipmentSet.size;
 
       // Get maintenance tasks count
       const { tasks } = await getMaintenanceTasks(currentProject.id);
       const maintenanceTasksCount = tasks.length;
 
-      // For now, documents count = 1 if we have FMECA data, 0 if not
-      const documentsCount = fmecaRowsCount > 0 ? 1 : 0;
+      // Get real documents count from database
+      const { data: documentsData, error: documentsError } = await supabase
+        .from("documents")
+        .select("id", { count: "exact" })
+        .eq("user_id", user.id)
+        .eq("project_id", currentProject.id);
+
+      if (documentsError) {
+        console.error("Failed to fetch documents count:", documentsError);
+      }
+
+      const documentsCount = documentsData?.length || 0;
 
       setStats({
         equipmentCount,
@@ -155,9 +165,7 @@ export function DashboardContent() {
               <div className="text-2xl font-bold">
                 {loading ? "..." : stats.equipmentCount}
               </div>
-              <p className="text-xs text-muted-foreground">
-                Unique assets & components
-              </p>
+              <p className="text-xs text-muted-foreground">Assets in project</p>
             </CardContent>
           </Card>
 

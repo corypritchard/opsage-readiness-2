@@ -146,7 +146,7 @@ const EditableCell: React.FC<EditableCellProps> = ({
     return (
       <div className="w-full h-full p-1">
         <textarea
-          className="w-full h-full min-h-[50px] p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+          className="w-full h-full min-h-[40px] p-1 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
           value={value as string}
           onChange={(e) => setValue(e.target.value)}
           onBlur={saveValue}
@@ -161,12 +161,23 @@ const EditableCell: React.FC<EditableCellProps> = ({
   // Otherwise render the cell content
   return (
     <div
-      className={`w-full h-full p-2 cursor-pointer ${cellStyle} ${
+      className={`w-full h-full p-1 cursor-pointer ${cellStyle} ${
         !isRowDeleted ? "hover:bg-gray-100 dark:hover:bg-gray-700" : ""
       }`}
       onClick={handleCellClick}
     >
-      {value ? String(value) : "—"}
+      {value
+        ? (() => {
+            const stringValue = String(value);
+            // Split at each numbered marker, keeping the marker
+            const items = stringValue
+              .split(/(?=\d+\))/g)
+              .map((s) => s.trim())
+              .filter(Boolean);
+            if (items.length <= 1) return stringValue;
+            return items.map((item, idx) => <div key={idx}>{item}</div>);
+          })()
+        : "—"}
     </div>
   );
 };
@@ -215,15 +226,15 @@ export function TanStackFMECATable({
   const deleteColumn: ColumnDef<any> = {
     id: "_delete",
     header: "",
-    size: 28,
-    minSize: 28,
-    maxSize: 28,
+    size: 32,
+    minSize: 32,
+    maxSize: 32,
     cell: ({ row }) => {
       const isDeleted = isRowDeleted(row, stagedChanges);
       return !isDeleted ? (
         <button
           type="button"
-          className="text-red-500 hover:bg-red-100 dark:hover:bg-red-900 rounded p-0"
+          className="text-red-500 hover:bg-red-100 dark:hover:bg-red-900 rounded p-1 flex items-center justify-center"
           title="Delete row"
           onClick={(e) => {
             e.stopPropagation();
@@ -340,7 +351,7 @@ export function TanStackFMECATable({
                 {headerGroup.headers.map((header) => (
                   <th
                     key={header.id}
-                    className="px-4 py-4 text-center text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider relative border-b border-gray-200 dark:border-gray-600"
+                    className="px-2 py-2 text-center text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider relative border-b border-gray-200 dark:border-gray-600"
                     style={{ width: header.getSize() }}
                   >
                     {header.isPlaceholder
@@ -394,7 +405,7 @@ export function TanStackFMECATable({
                       <td
                         key={cell.id}
                         className={cn(
-                          "px-6 py-4 relative",
+                          "px-2 py-1 relative",
                           // Modified cells - orange background
                           isModified && "bg-orange-100 dark:bg-orange-900/30",
                           // Add a subtle border for modified cells

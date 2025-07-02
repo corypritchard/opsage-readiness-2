@@ -131,9 +131,9 @@ export function FileUploadZone({
         {/* Content */}
         <div className="relative z-10">
           {/* Enhanced Icon */}
-          <div className="mx-auto w-20 h-20 icon-primary rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+          <div className="mx-auto w-20 h-20 icon-primary rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300 relative">
             <FileSpreadsheet className="h-10 w-10 text-white" />
-            <div className="absolute -top-1 -right-1 w-6 h-6 icon-warning rounded-full flex items-center justify-center shadow-md">
+            <div className="absolute -top-1 -right-1 w-6 h-6 icon-warning rounded-full flex items-center justify-center shadow-md transform scale-100">
               <Sparkles className="w-3 h-3 text-white" />
             </div>
           </div>

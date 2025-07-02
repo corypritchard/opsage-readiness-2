@@ -62,7 +62,7 @@ const sidebarArcs = [
     // Top band
     style: {
       position: "absolute",
-      top: "0vh",
+      top: "-10vh",
       left: "-60px",
       width: "320px",
       height: "320px",
@@ -75,7 +75,7 @@ const sidebarArcs = [
     // Upper-middle band
     style: {
       position: "absolute",
-      top: "25vh",
+      top: "15vh",
       left: "80px",
       width: "360px",
       height: "360px",
@@ -89,7 +89,7 @@ const sidebarArcs = [
     style: {
       position: "absolute",
       top: "50vh",
-      left: "-40px",
+      left: "-30px",
       width: "384px",
       height: "384px",
       opacity: 0.8,
@@ -101,12 +101,12 @@ const sidebarArcs = [
     // Bottom band
     style: {
       position: "absolute",
-      top: "75vh",
-      left: "100px",
+      top: "60vh",
+      left: "10px",
       width: "336px",
       height: "336px",
       opacity: 0.8,
-      transform: "rotate(277deg)",
+      transform: "rotate(360deg)",
     },
     strokeWidth: 20,
   },
@@ -136,7 +136,9 @@ export function AppSidebar({
           <svg
             key={i}
             className="text-foreground/5"
-            style={{ ...arc.style, pointerEvents: undefined }}
+            style={
+              { ...arc.style, pointerEvents: undefined } as React.CSSProperties
+            }
             viewBox="0 0 200 200"
             fill="none"
           >

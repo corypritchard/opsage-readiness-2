@@ -50,7 +50,7 @@ const HeroSection = () => {
           <img
             src="/lovable-uploads/fmeca-sample.png"
             alt="Opsage FMECA Screenshot Enlarged"
-            className="max-w-4xl w-full rounded-xl shadow-2xl border-4 border-white"
+            className="max-w-[90vw] max-h-[90vh] w-auto h-auto rounded-xl shadow-2xl border-4 border-white object-contain"
             style={{ cursor: "zoom-out" }}
           />
         </div>
@@ -60,7 +60,7 @@ const HeroSection = () => {
         {/* Arc SVGs with square ends and random rotation */}
         {/* Bottom right */}
         <svg
-          className="absolute bottom-0 right-0 w-64 h-64 opacity-20"
+          className="absolute bottom-0 right-0 w-80 h-80 opacity-20"
           style={{ transform: `rotate(${arcRotations[0]}deg)` }}
           viewBox="0 0 200 200"
           fill="none"
@@ -74,7 +74,7 @@ const HeroSection = () => {
         </svg>
         {/* Top right */}
         <svg
-          className="absolute -top-24 right-24 w-48 h-48 opacity-10"
+          className="absolute -top-24 right-24 w-60 h-60 opacity-10"
           style={{ transform: `rotate(${arcRotations[1]}deg)` }}
           viewBox="0 0 200 200"
           fill="none"
@@ -88,7 +88,7 @@ const HeroSection = () => {
         </svg>
         {/* Bottom left */}
         <svg
-          className="absolute bottom-12 -left-24 w-40 h-40 opacity-10"
+          className="absolute bottom-12 -left-24 w-52 h-52 opacity-10"
           style={{ transform: `rotate(${arcRotations[2]}deg)` }}
           viewBox="0 0 200 200"
           fill="none"

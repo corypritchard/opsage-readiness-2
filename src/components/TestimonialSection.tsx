@@ -8,7 +8,7 @@ const TestimonialSection = () => {
       <div className="absolute inset-0 pointer-events-none z-0">
         {/* Arc 1 */}
         <svg
-          className="absolute top-0 left-1/3 w-32 h-32 opacity-10"
+          className="absolute top-0 left-1/3 w-44 h-44 opacity-10"
           style={{ transform: `rotate(${arcRotations[0]}deg)` }}
           viewBox="0 0 200 200"
           fill="none"
@@ -22,7 +22,7 @@ const TestimonialSection = () => {
         </svg>
         {/* Arc 2 */}
         <svg
-          className="absolute bottom-0 right-0 w-44 h-44 opacity-20"
+          className="absolute bottom-0 right-0 w-56 h-56 opacity-20"
           style={{ transform: `rotate(${arcRotations[1]}deg)` }}
           viewBox="0 0 200 200"
           fill="none"
@@ -36,7 +36,7 @@ const TestimonialSection = () => {
         </svg>
         {/* Arc 3 */}
         <svg
-          className="absolute top-1/2 left-0 w-24 h-24 opacity-10"
+          className="absolute top-1/2 left-0 w-36 h-36 opacity-10"
           style={{ transform: `rotate(${arcRotations[2]}deg)` }}
           viewBox="0 0 200 200"
           fill="none"

@@ -1,14 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Bot,
-  Save,
   FolderOpen,
   Plus,
   Settings,
   Download,
   Upload,
   Wrench,
+  Trash2,
 } from "lucide-react";
+import * as XLSX from "xlsx";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -42,6 +43,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { generateMaintenanceTasksWithAI } from "@/services/maintenanceTaskAI";
+import { getAssets, type Asset } from "@/integrations/supabase/assets";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandInput,
+  CommandList,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+} from "@/components/ui/command";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ChevronsUpDown } from "lucide-react";
 
 interface MaintenanceTasksContentProps {
   fmecaData: any[];
@@ -69,11 +87,50 @@ export function MaintenanceTasksContent({
   const [maintenanceTasksData, setMaintenanceTasksData] = useState<any[]>([]);
   const [tasksColumns, setTasksColumns] = useState<ColumnDef<any>[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [selectedTypes, setSelectedTypes] = useState({
+    Corrective: true,
+    Preventive: true,
+    Predictive: true,
+  });
 
   const { sendMessage } = useAIChat();
+
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [assetsLoading, setAssetsLoading] = useState(false);
+  const [selectedAssets, setSelectedAssets] = useState<string[]>([]);
+
+  // Load real assets from database
+  useEffect(() => {
+    const loadAssets = async () => {
+      if (!currentProject?.id) {
+        setAssets([]);
+        setSelectedAssets([]);
+        return;
+      }
+      setAssetsLoading(true);
+      try {
+        const { data } = await getAssets(currentProject.id);
+        setAssets(data);
+        setSelectedAssets(data.map((a: Asset) => a.name));
+      } catch (e) {
+        setAssets([]);
+        setSelectedAssets([]);
+      } finally {
+        setAssetsLoading(false);
+      }
+    };
+    loadAssets();
+  }, [currentProject?.id]);
+
+  const handleAssetToggle = (assetName: string) => {
+    setSelectedAssets((prev) =>
+      prev.includes(assetName)
+        ? prev.filter((a) => a !== assetName)
+        : [...prev, assetName]
+    );
+  };
 
   // Load maintenance tasks when project changes
   useEffect(() => {
@@ -108,58 +165,48 @@ export function MaintenanceTasksContent({
     }
   };
 
-  const saveTasksToDatabase = async () => {
-    if (!currentProject || maintenanceTasksData.length === 0) {
-      toast("No tasks to save", {
-        description: "Generate some maintenance tasks first.",
-      });
-      return;
-    }
-
-    try {
-      setIsSaving(true);
-
-      await saveMaintenanceTasks(
-        currentProject.id,
-        maintenanceTasksData,
-        tasksColumns
-      );
-
-      toast("Tasks saved successfully!", {
-        description: `Saved ${maintenanceTasksData.length} maintenance tasks to the database.`,
-      });
-    } catch (error) {
-      console.error("Failed to save tasks:", error);
-      toast("Failed to save tasks", {
-        description: "Please try again.",
-      });
-    } finally {
-      setIsSaving(false);
-    }
+  const handleTypeChange = (type: string) => {
+    setSelectedTypes((prev) => ({ ...prev, [type]: !prev[type] }));
   };
 
   const handleGenerateTasks = async () => {
     console.log("Generating AI tasks from FMECA data:", fmecaData);
 
+    // Match by exact name or by keyword (first token) to account for codes like "Conveyor CVR001"
+    const selectedKeywords = selectedAssets.map((n) => n.split(" ")[0]);
+    const filteredFmecaData = fmecaData.filter((row) =>
+      selectedAssets.includes(row["Asset Type"]) ||
+      selectedKeywords.includes(String(row["Asset Type"]))
+    );
+    if (filteredFmecaData.length === 0) {
+      toast("No assets selected", {
+        description: "Please select at least one asset.",
+      });
+      return;
+    }
+
+    // Build prompt based on selected types
+    const selected = Object.entries(selectedTypes)
+      .filter(([_, v]) => v)
+      .map(([k]) => k);
+    let customPrompt = "";
+    if (selected.length === 0 || selected.length === 3) {
+      customPrompt =
+        "Create a completely new table of maintenance tasks based on the FMECA data. Generate preventive, predictive, and corrective maintenance tasks for each asset/component combination. Each row should be a specific maintenance task with these exact columns: Asset, Component, Task Description, Frequency, Maintenance Type, Failure Mode. Do not copy the original FMECA data - create new maintenance task records. For example, if FMECA shows 'Belt Conveyor - Idlers', create tasks like 'Inspect idler alignment', 'Lubricate idler bearings', etc. Make the frequency realistic (Daily, Weekly, Monthly, Quarterly, Annually) and maintenance type should be Preventive, Predictive, or Corrective.";
+    } else {
+      customPrompt = `Create a completely new table of maintenance tasks based on the FMECA data. Only generate ${selected.join(
+        ", "
+      )} maintenance tasks for each asset/component combination. Each row should be a specific maintenance task with these exact columns: Asset, Component, Task Description, Frequency, Maintenance Type, Failure Mode. Do not copy the original FMECA data - create new maintenance task records. For example, if FMECA shows 'Belt Conveyor - Idlers', create tasks like 'Inspect idler alignment', 'Lubricate idler bearings', etc. Make the frequency realistic (Daily, Weekly, Monthly, Quarterly, Annually) and maintenance type should be ${selected.join(
+        ", "
+      )}.`;
+    }
+
     try {
       setIsGenerating(true);
-
-      // Create the AI message to generate maintenance tasks
-      const messages = [
-        {
-          id: "1",
-          type: "user" as const,
-          content:
-            "Create a completely new table of maintenance tasks based on the FMECA data. Generate preventive maintenance tasks for each asset/component combination. Each row should be a specific maintenance task with these exact columns: Asset, Component, Task Description, Frequency, Maintenance Type, Failure Mode. Do not copy the original FMECA data - create new maintenance task records. For example, if FMECA shows 'Belt Conveyor - Idlers', create tasks like 'Inspect idler alignment', 'Lubricate idler bearings', etc. Make the frequency realistic (Daily, Weekly, Monthly, Quarterly, Annually) and maintenance type should be Preventive, Predictive, or Corrective.",
-          timestamp: new Date(),
-        },
-      ];
-
-      console.log("Sending AI request to generate maintenance tasks");
-      const result = await sendMessage(
-        messages,
-        fmecaData,
-        Object.keys(fmecaData[0] || {})
+      const result = await generateMaintenanceTasksWithAI(
+        filteredFmecaData,
+        Object.keys(filteredFmecaData[0] || {}),
+        customPrompt
       );
 
       console.log("AI result received for maintenance tasks:", {
@@ -170,11 +217,12 @@ export function MaintenanceTasksContent({
 
       // Debug: Compare original FMECA vs generated tasks
       console.log("=== COMPARISON DEBUG ===");
-      console.log("Original FMECA data sample:", fmecaData[0]);
+      console.log("Original FMECA data sample:", filteredFmecaData[0]);
       console.log("AI Generated data sample:", result.updatedData?.[0]);
       console.log(
         "Are they the same?",
-        JSON.stringify(fmecaData[0]) === JSON.stringify(result.updatedData?.[0])
+        JSON.stringify(filteredFmecaData[0]) ===
+          JSON.stringify(result.updatedData?.[0])
       );
       console.log("========================");
 
@@ -221,7 +269,7 @@ export function MaintenanceTasksContent({
             await saveMaintenanceTasks(
               currentProject.id,
               result.updatedData,
-              generatedColumns
+              generatedColumns.filter(isColumnShape)
             );
             toast("Tasks auto-saved to database!", {
               description:
@@ -254,6 +302,192 @@ export function MaintenanceTasksContent({
     }
   };
 
+  const parseExcelFile = async (
+    file: File
+  ): Promise<{ data: any[]; columns: string[] }> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: "array" });
+
+          // Get the first worksheet
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+
+          // Convert to JSON with header row
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, {
+            header: 1,
+            defval: "",
+            raw: false,
+          });
+
+          console.log("Raw Excel data:", jsonData);
+          console.log("Total rows found:", jsonData.length);
+
+          if (jsonData.length < 2) {
+            throw new Error(
+              "Excel file appears to be empty or has no data rows"
+            );
+          }
+
+          // Get headers from first row - these will be our column names exactly as they appear
+          const headers = jsonData[0] as string[];
+          console.log("Headers found:", headers);
+
+          // Convert rows to objects using exact header names
+          const parsedData = [];
+          for (let i = 1; i < jsonData.length; i++) {
+            const row = jsonData[i] as any[];
+            if (row && row.some((cell) => cell !== "")) {
+              // Skip empty rows
+              const rowObject: any = {};
+
+              // Map each cell to its corresponding header exactly
+              headers.forEach((header, index) => {
+                const cellValue = row[index] || "";
+                rowObject[header] = cellValue;
+              });
+
+              parsedData.push(rowObject);
+            }
+          }
+
+          console.log("Final parsed data sample:", parsedData[0]);
+          console.log("Final parsed data count:", parsedData.length);
+
+          if (parsedData.length === 0) {
+            throw new Error("No valid data rows found in the Excel file");
+          }
+
+          resolve({ data: parsedData, columns: headers });
+        } catch (error) {
+          console.error("Error parsing Excel file:", error);
+          reject(error);
+        }
+      };
+
+      reader.onerror = () => {
+        reject(new Error("Failed to read the file"));
+      };
+
+      reader.readAsArrayBuffer(file);
+    });
+  };
+
+  const handleFileUpload = useCallback(
+    async (file: File) => {
+      if (!currentProject) {
+        toast("Please select a project first", {
+          description: "You need to select a project before uploading data.",
+        });
+        return;
+      }
+
+      try {
+        setIsGenerating(true); // Reuse the loading state
+
+        console.log("Processing maintenance tasks file:", file.name);
+
+        const { data, columns: parsedColumns } = await parseExcelFile(file);
+
+        console.log("Setting parsed maintenance tasks data:", {
+          dataLength: data.length,
+          columnsLength: parsedColumns.length,
+          sampleColumns: parsedColumns.slice(0, 5),
+        });
+
+        // Convert column names to proper TanStack Table column definitions
+        const columnDefinitions = parsedColumns.map((columnName) => ({
+          id: columnName,
+          header: columnName,
+          accessorKey: columnName,
+        }));
+
+        setMaintenanceTasksData(data);
+        setTasksColumns(columnDefinitions);
+
+        // Auto-save to database after successful parsing
+        await saveMaintenanceTasks(currentProject.id, data, columnDefinitions);
+
+        toast("Maintenance tasks file uploaded and processed successfully!", {
+          description: `Loaded ${data.length} entries with ${parsedColumns.length} columns`,
+        });
+      } catch (error) {
+        console.error("Error processing maintenance tasks file:", error);
+        toast("Failed to process file", {
+          description:
+            error instanceof Error ? error.message : "Unknown error occurred",
+        });
+      } finally {
+        setIsGenerating(false);
+      }
+    },
+    [currentProject]
+  );
+
+  const handleExport = useCallback(() => {
+    if (!maintenanceTasksData.length || !tasksColumns.length) {
+      toast("No data to export", {
+        description: "Please load or generate maintenance tasks first",
+      });
+      return;
+    }
+
+    try {
+      // Create a new workbook
+      const workbook = XLSX.utils.book_new();
+
+      // Convert data to worksheet format
+      const worksheet = XLSX.utils.json_to_sheet(maintenanceTasksData);
+
+      // Add the worksheet to workbook
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Maintenance Tasks");
+
+      // Generate filename
+      const timestamp = new Date()
+        .toISOString()
+        .slice(0, 19)
+        .replace(/:/g, "-");
+      const filename = `Maintenance_Tasks_Export_${timestamp}.xlsx`;
+
+      // Write the file
+      XLSX.writeFile(workbook, filename);
+
+      toast("Maintenance tasks exported successfully!", {
+        description: `File saved as ${filename}`,
+      });
+    } catch (error) {
+      console.error("Error exporting maintenance tasks data:", error);
+      toast("Failed to export data", {
+        description: "Please try again",
+      });
+    }
+  }, [maintenanceTasksData, tasksColumns]);
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleFileUpload(file);
+    }
+    // Reset the input value so the same file can be selected again
+    e.target.value = "";
+  };
+
+  // Add a type guard for column shape
+  function isColumnShape(
+    col: any
+  ): col is { id: string; header: string; accessorKey: string } {
+    return (
+      typeof col === "object" &&
+      typeof col.id === "string" &&
+      typeof col.header === "string" &&
+      typeof col.accessorKey === "string"
+    );
+  }
+
   return (
     <div className="h-screen overflow-hidden bg-gray-50/50 dark:bg-gray-900/50">
       <div className="h-full flex flex-col w-full px-4 py-8 sm:px-6 lg:px-8">
@@ -269,7 +503,7 @@ export function MaintenanceTasksContent({
                   Maintenance Tasks
                 </h1>
                 <p className="text-gray-600 dark:text-gray-400">
-                  AI-generated maintenance tasks based on FMECA analysis
+                  Automatically generate maintenance tasks based on FMECA
                 </p>
               </div>
               {maintenanceTasksData.length > 0 && (
@@ -281,26 +515,26 @@ export function MaintenanceTasksContent({
             </div>
 
             <div className="flex items-center gap-3">
+              <label className="inline-flex items-center h-11 px-4 py-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md text-sm font-medium cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50">
+                <Upload className="h-4 w-4 mr-2" />
+                Import
+                <input
+                  type="file"
+                  className="hidden"
+                  accept=".xlsx,.xls"
+                  onChange={handleFileInputChange}
+                  disabled={isGenerating}
+                />
+              </label>
               <Button
                 variant="outline"
-                onClick={handleGenerateTasks}
-                disabled={!hasFMECAData || isGenerating || !currentProject}
+                onClick={handleExport}
+                disabled={!maintenanceTasksData.length || !tasksColumns.length}
                 className="h-11"
               >
-                <Bot className="h-4 w-4 mr-2" />
-                {isGenerating ? "Generating..." : "Generate Tasks"}
+                <Download className="h-4 w-4 mr-2" />
+                Export
               </Button>
-
-              {maintenanceTasksData.length > 0 && (
-                <Button
-                  onClick={saveTasksToDatabase}
-                  disabled={isSaving || !currentProject}
-                  className="h-11 btn-primary"
-                >
-                  <Save className="h-4 w-4 mr-2" />
-                  {isSaving ? "Saving..." : "Save Tasks"}
-                </Button>
-              )}
 
               <Dialog
                 open={showDeleteDialog}
@@ -308,7 +542,7 @@ export function MaintenanceTasksContent({
               >
                 <DialogTrigger asChild>
                   <Button variant="destructive" className="h-11 ml-2">
-                    Delete Table
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
@@ -335,7 +569,7 @@ export function MaintenanceTasksContent({
                           await saveMaintenanceTasks(
                             currentProject.id,
                             [],
-                            tasksColumns
+                            tasksColumns.filter(isColumnShape)
                           );
                         }
                         toast("Maintenance tasks table deleted and saved.");
@@ -388,54 +622,131 @@ export function MaintenanceTasksContent({
           hasFMECAData &&
           maintenanceTasksData.length === 0 &&
           !isLoading ? (
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-            <div className="p-8">
-              <div className="text-center mb-8">
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                  AI-Powered Task Generation
-                </h3>
-                <p className="text-gray-600 dark:text-gray-400">
-                  Ready to generate maintenance tasks from your FMECA analysis
-                </p>
+          <Card className="w-full bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+            <CardHeader className="text-center space-y-0 pb-4">
+              <h3 className="text-2xl font-bold">Automated Task Generation</h3>
+              <p className="text-muted-foreground text-sm">
+                Choose assets and maintenance types, then let the assistant
+                create your task list
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Asset selection */}
+              <div className="space-y-2 text-center">
+                <h4 className="text-sm font-medium">Assets</h4>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className="w-64 justify-between"
+                      disabled={assetsLoading || assets.length === 0}
+                    >
+                      {selectedAssets.length > 0
+                        ? `${selectedAssets.length} selected`
+                        : "Select assets"}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Search assets…" />
+                      <CommandEmpty>No asset found.</CommandEmpty>
+                      <CommandList>
+                        <CommandGroup>
+                          {assets.map((asset) => {
+                            const selected = selectedAssets.includes(
+                              asset.name
+                            );
+                            return (
+                              <CommandItem
+                                key={asset.id}
+                                onSelect={() => handleAssetToggle(asset.name)}
+                                className="cursor-pointer"
+                              >
+                                <Checkbox
+                                  checked={selected}
+                                  className="mr-2"
+                                  aria-hidden="true"
+                                />
+                                <span>{asset.name}</span>
+                              </CommandItem>
+                            );
+                          })}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                {selectedAssets.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1 justify-center">
+                    {selectedAssets.slice(0, 4).map((name) => (
+                      <span
+                        key={name}
+                        className="text-xs bg-muted px-2 py-0.5 rounded-full"
+                      >
+                        {name}
+                      </span>
+                    ))}
+                    {selectedAssets.length > 4 && (
+                      <span className="text-xs text-muted-foreground">
+                        +{selectedAssets.length - 4} more
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
 
-              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6 mb-8">
-                <div className="flex items-start gap-3">
-                  <Bot className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" />
-                  <div>
-                    <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-1">
-                      Ready for Task Generation
-                    </h4>
-                    <p className="text-sm text-blue-700 dark:text-blue-300">
-                      Your FMECA analysis contains {fmecaData.length} entries
-                      that can be processed by the AI assistant to generate
-                      targeted maintenance tasks.
-                    </p>
-                  </div>
+              {/* Maintenance type selection */}
+              <div className="space-y-2 text-center">
+                <h4 className="text-sm font-medium">Maintenance Types</h4>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {(["Corrective", "Preventive", "Predictive"] as const).map(
+                    (type) => {
+                      const selected = selectedTypes[type];
+                      return (
+                        <label
+                          key={type}
+                          className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs border cursor-pointer transition-colors ${
+                            selected
+                              ? "bg-primary/10 border-primary"
+                              : "hover:bg-accent"
+                          }`}
+                        >
+                          <Checkbox
+                            checked={selected}
+                            onCheckedChange={() => handleTypeChange(type)}
+                            className="h-4 w-4"
+                          />
+                          <span>{type}</span>
+                        </label>
+                      );
+                    }
+                  )}
                 </div>
               </div>
 
-              <div className="text-center">
+              {/* Generate button */}
+              <div className="text-center pt-2">
                 <Button
                   onClick={handleGenerateTasks}
-                  disabled={isGenerating || !currentProject}
-                  className="btn-primary px-8 py-3 text-lg font-medium"
+                  disabled={
+                    isGenerating ||
+                    !currentProject ||
+                    selectedAssets.length === 0 ||
+                    assets.length === 0
+                  }
                   size="lg"
+                  className="px-8"
                 >
                   <Bot className="h-5 w-5 mr-2" />
-                  {isGenerating
-                    ? "Generating Tasks..."
-                    : "Generate Tasks with AI"}
+                  {isGenerating ? "Generating…" : "Generate Tasks"}
                 </Button>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-3">
-                  AI will analyze your FMECA data to create preventive,
-                  predictive, and corrective maintenance tasks
-                </p>
               </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         ) : (
-          <div className="flex-1 min-h-0 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+          <div className="flex-1 min-h-0 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden text-sm">
             {isLoading ? (
               <div className="flex items-center justify-center py-16">
                 <div className="text-center">
