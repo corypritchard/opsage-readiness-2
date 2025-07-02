@@ -601,8 +601,7 @@ export function DocumentsContent({ className }: { className?: string }) {
                       Knowledge Base
                     </h1>
                     <p className="text-gray-600 dark:text-gray-400">
-                      Centralize and manage all knowledge around your project
-                      assets
+                      Give the Opsage Assistant all knowledge of your assets
                     </p>
                   </div>
                   <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
@@ -617,9 +616,12 @@ export function DocumentsContent({ className }: { className?: string }) {
                     onOpenChange={setShowUploadDialog}
                   >
                     <DialogTrigger asChild>
-                      <Button className="h-11 btn-primary">
+                      <Button
+                        variant="outline"
+                        className="h-10 border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 rounded-xl text-gray-700 dark:text-gray-300"
+                      >
                         <Upload className="h-4 w-4 mr-2" />
-                        Upload Document
+                        Upload
                       </Button>
                     </DialogTrigger>
                     <DialogContent className="sm:max-w-2xl">
@@ -1004,8 +1006,7 @@ export function DocumentsContent({ className }: { className?: string }) {
                       Knowledge Base
                     </h1>
                     <p className="text-gray-600 dark:text-gray-400">
-                      Centralize and manage all knowledge around your project
-                      assets
+                      Give the Opsage Assistant all knowledge of your assets
                     </p>
                   </div>
                 </div>
@@ -1016,9 +1017,12 @@ export function DocumentsContent({ className }: { className?: string }) {
                     onOpenChange={setShowUploadDialog}
                   >
                     <DialogTrigger asChild>
-                      <Button className="h-11 btn-primary">
+                      <Button
+                        variant="outline"
+                        className="h-10 border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 rounded-xl text-gray-700 dark:text-gray-300"
+                      >
                         <Upload className="h-4 w-4 mr-2" />
-                        Upload Document
+                        Upload
                       </Button>
                     </DialogTrigger>
                     <DialogContent className="sm:max-w-2xl">

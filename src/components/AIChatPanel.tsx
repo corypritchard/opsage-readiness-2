@@ -19,6 +19,10 @@ import {
   RefreshCw,
   Edit3,
   Upload,
+  Search,
+  FileText,
+  Calculator,
+  CheckCircle,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -52,7 +56,6 @@ import { useDocumentProcessor } from "@/hooks/useDocumentProcessor";
 import { useAuth } from "@/contexts/AuthContext";
 import { getAssets } from "@/integrations/supabase/assets";
 import {
-  FileText,
   FileImage,
   FileSpreadsheet,
   FileCode,
@@ -66,7 +69,7 @@ import {
   FunctionCall,
 } from "@/services/fmecaAgent";
 import { useProject } from "@/contexts/ProjectContext";
-import { useAIChat } from "@/hooks/useAIChat";
+import { useAIChat, LoadingStep } from "@/hooks/useAIChat";
 import ReactMarkdown from "react-markdown";
 
 interface AIChatPanelProps {
@@ -307,6 +310,50 @@ const MarkdownParagraph: React.FC<any> = ({ node, ...props }) => (
   <p className="mb-2 last:mb-0" {...props} />
 );
 
+// Helper function to get loading step details
+const getLoadingStepDetails = (
+  step: LoadingStep | null,
+  chatMode: "edit" | "ask"
+) => {
+  if (!step) return { message: "AI is thinking...", icon: Brain };
+
+  switch (step) {
+    case "searching":
+      return {
+        message: "Reviewing your project files",
+        icon: Search,
+        description: "Checking your documents for relevant information…",
+      };
+    case "analyzing":
+      return {
+        message: "Interpreting your request",
+        icon: FileText,
+        description:
+          "Working through your question and identifying what's needed…",
+      };
+    case "processing":
+      return {
+        message: "Preparing a response",
+        icon: Brain,
+        description: "Organising the right details for your answer…",
+      };
+    case "calculating":
+      return {
+        message: "Finalising and applying updates",
+        icon: Calculator,
+        description: "Applying the changes to your data…",
+      };
+    case "finalizing":
+      return {
+        message: "Finalising and applying updates",
+        icon: CheckCircle,
+        description: "Applying the changes to your data…",
+      };
+    default:
+      return { message: "AI is thinking...", icon: Brain };
+  }
+};
+
 export function AIChatPanel({
   className,
   fmecaData,
@@ -322,6 +369,25 @@ export function AIChatPanel({
   initialWidth = 380,
   onChatRef,
 }: AIChatPanelProps) {
+  const { currentProject } = useProject();
+  const [docCount, setDocCount] = useState<number | null>(null);
+  useEffect(() => {
+    const fetchDocCount = async () => {
+      if (!currentProject?.id) {
+        setDocCount(null);
+        return;
+      }
+      const { supabase } = await import("@/integrations/supabase/client");
+      const { count, error } = await supabase
+        .from("documents")
+        .select("id", { count: "exact", head: true })
+        .eq("project_id", currentProject.id);
+      if (!error) setDocCount(count ?? 0);
+      else setDocCount(null);
+    };
+    fetchDocCount();
+  }, [currentProject?.id]);
+
   // Function to calculate the diff between original and updated data
   const calculateDataDiff = (
     originalData: any[],
@@ -424,14 +490,13 @@ export function AIChatPanel({
     };
   };
   const { user } = useAuth();
-  const { currentProject } = useProject();
   const { processFile, isProcessing, processingResults, clearResults } =
     useDocumentProcessor();
 
   const [chatMode, setChatMode] = useState<"edit" | "ask">("edit");
   const [messages, setMessages] = useState<AgentMessage[]>([]);
   const [inputValue, setInputValue] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
 
@@ -445,7 +510,7 @@ export function AIChatPanel({
   const [isLoadingAssets, setIsLoadingAssets] = useState(true);
 
   const { resolvedTheme } = useTheme();
-  const { sendMessage } = useAIChat();
+  const { sendMessage, isLoading: aiIsLoading, loadingStep } = useAIChat();
 
   // Function to add a message from external components
   const addMessage = (message: AgentMessage) => {
@@ -519,7 +584,7 @@ export function AIChatPanel({
     const textarea = document.querySelector("textarea");
     if (textarea) {
       const adjustHeight = () => {
-        textarea.style.height = "60px"; // Reset to minimum height
+        textarea.style.height = "auto";
         const scrollHeight = Math.min(textarea.scrollHeight, 120); // Max height of 120px
         textarea.style.height = scrollHeight + "px";
       };
@@ -534,7 +599,7 @@ export function AIChatPanel({
   }, [inputValue]);
 
   const handleSendMessage = async () => {
-    if (!inputValue.trim() || hasStagedChanges || isLoading) return;
+    if (!inputValue.trim() || hasStagedChanges || aiIsLoading) return;
 
     const userMessage: AgentMessage = {
       id: Date.now().toString(),
@@ -548,7 +613,6 @@ export function AIChatPanel({
     const updatedMessages = [...messages, userMessage];
     setMessages(updatedMessages);
     setInputValue("");
-    setIsLoading(true);
     scrollToBottom("smooth");
 
     try {
@@ -675,8 +739,6 @@ export function AIChatPanel({
         ],
       };
       setMessages([...updatedMessages, errorMessage]);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -970,32 +1032,55 @@ export function AIChatPanel({
                             ))}
                           </div>
                         )}
-
-                      <div className="text-xs text-gray-500 mt-2">
-                        {message.timestamp.toLocaleTimeString()}
-                      </div>
                     </div>
                   </div>
                 ))}
 
-                {/* Enhanced Loading Indicator */}
-                {isLoading && (
+                {/* Enhanced Loading Indicator with Step Details */}
+                {aiIsLoading && (
                   <div className="flex justify-start">
-                    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl rounded-bl-md px-4 py-3 shadow-sm">
-                      <div className="flex items-center gap-1">
-                        <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                        <div
-                          className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"
-                          style={{ animationDelay: "0.2s" }}
-                        ></div>
-                        <div
-                          className="w-2 h-2 bg-pink-500 rounded-full animate-pulse"
-                          style={{ animationDelay: "0.4s" }}
-                        ></div>
-                        <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">
-                          AI is thinking...
-                        </span>
-                      </div>
+                    <div
+                      className={cn(
+                        "inline-block p-3 rounded-2xl shadow-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-bl-md max-w-[85%]"
+                      )}
+                    >
+                      {(() => {
+                        const stepDetails = getLoadingStepDetails(
+                          loadingStep,
+                          chatMode
+                        );
+                        const StepIcon = stepDetails.icon;
+                        return (
+                          <div className="flex items-start gap-3">
+                            <div className="flex-shrink-0 mt-0.5">
+                              <StepIcon className="h-4 w-4 text-blue-500 animate-pulse" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                  {stepDetails.message}
+                                </span>
+                                <div className="flex gap-1">
+                                  <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></div>
+                                  <div
+                                    className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-pulse"
+                                    style={{ animationDelay: "0.2s" }}
+                                  ></div>
+                                  <div
+                                    className="w-1.5 h-1.5 bg-pink-500 rounded-full animate-pulse"
+                                    style={{ animationDelay: "0.4s" }}
+                                  ></div>
+                                </div>
+                              </div>
+                              {stepDetails.description && (
+                                <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                                  {stepDetails.description}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 )}
@@ -1056,7 +1141,7 @@ export function AIChatPanel({
                       : "Ask a question about your FMECA data..."
                   }
                   onKeyPress={handleKeyPress}
-                  disabled={isLoading || hasStagedChanges}
+                  disabled={aiIsLoading || hasStagedChanges}
                   rows={2}
                   className={cn(
                     "w-full py-3 px-4 border rounded-xl resize-none bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none transition-all duration-200",
@@ -1122,7 +1207,13 @@ export function AIChatPanel({
                     className="flex-1 h-10 border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 rounded-xl text-gray-700 dark:text-gray-300"
                   >
                     <Upload className="h-4 w-4 mr-2" />
-                    Upload Document
+                    Upload
+                    {docCount !== null && (
+                      <span className="ml-2 text-xs text-gray-500">
+                        ({docCount} file{docCount === 1 ? "" : "s"} visible to
+                        assistant)
+                      </span>
+                    )}
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-2xl">
