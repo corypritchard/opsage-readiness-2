@@ -11,9 +11,18 @@ interface ChatMessage {
   timestamp: Date;
 }
 
+// Define loading steps for better user experience
+export type LoadingStep =
+  | "searching"
+  | "analyzing"
+  | "processing"
+  | "calculating"
+  | "finalizing";
+
 export const useAIChat = () => {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingStep, setLoadingStep] = useState<LoadingStep | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<string>("");
 
@@ -26,6 +35,7 @@ export const useAIChat = () => {
       wantsPreview?: boolean
     ) => {
       setIsLoading(true);
+      setLoadingStep("searching");
       setError(null);
 
       try {
@@ -75,6 +85,8 @@ export const useAIChat = () => {
         } else {
           console.log("Skipping vector search - user ID:", user?.id);
         }
+
+        setLoadingStep("analyzing");
 
         // Optimize FMECA data sample for faster processing
         const getFmecaDataSample = () => {
@@ -135,6 +147,8 @@ export const useAIChat = () => {
           chatMode,
         });
 
+        setLoadingStep("processing");
+
         const { data, error: invokeError } = await supabase.functions.invoke(
           "chat-with-ai",
           {
@@ -148,7 +162,53 @@ export const useAIChat = () => {
           }
         );
 
+        // Improved error handling: if invokeError but data.response exists, return the response
         if (invokeError) {
+          // Try to extract a response message from multiple possible locations
+          let aiResponse = null;
+          if (data && data.response) {
+            aiResponse = data.response;
+          } else if (invokeError.response) {
+            try {
+              const parsed =
+                typeof invokeError.response === "string"
+                  ? JSON.parse(invokeError.response)
+                  : invokeError.response;
+              if (parsed && parsed.response) aiResponse = parsed.response;
+            } catch {}
+          } else if (invokeError.body) {
+            try {
+              const parsed =
+                typeof invokeError.body === "string"
+                  ? JSON.parse(invokeError.body)
+                  : invokeError.body;
+              if (parsed && parsed.response) aiResponse = parsed.response;
+            } catch {}
+          } else if (invokeError.message) {
+            try {
+              const parsed =
+                typeof invokeError.message === "string"
+                  ? JSON.parse(invokeError.message)
+                  : null;
+              if (parsed && parsed.response) aiResponse = parsed.response;
+            } catch {}
+          }
+          if (aiResponse) {
+            // Log for debugging
+            console.warn(
+              "Supabase Edge Function returned error status but provided response:",
+              aiResponse
+            );
+            setSummary((prev) =>
+              summariseConversation(prev, lastUserMessage, aiResponse)
+            );
+            return {
+              response: aiResponse,
+              updatedData: data?.updatedData,
+              diff: null,
+              validation: data?.validation,
+            };
+          }
           throw new Error(invokeError.message);
         }
 
@@ -156,6 +216,11 @@ export const useAIChat = () => {
 
         if (!data.response) {
           throw new Error("Received an empty response from the AI.");
+        }
+
+        // Only show calculating/finalizing steps for edit mode
+        if (chatMode === "edit") {
+          setLoadingStep("calculating");
         }
 
         const textResponse = data.response;
@@ -174,7 +239,12 @@ export const useAIChat = () => {
         });
 
         // Handle newRows format for add operations
-        if (chatMode === "edit" && newRows && Array.isArray(newRows)) {
+        if (
+          chatMode === "edit" &&
+          newRows &&
+          Array.isArray(newRows) &&
+          newRows.length > 0
+        ) {
           console.log("Processing newRows for add operation...");
           // For add operations, combine existing data with new rows
           updatedData = [...(fmecaData || []), ...newRows];
@@ -262,11 +332,17 @@ export const useAIChat = () => {
           updatedData = undefined;
         }
 
+        // Final step only for edit mode
+        if (chatMode === "edit") {
+          setLoadingStep("finalizing");
+        }
+
         // After getting data, update summary
         setSummary((prev) =>
           summariseConversation(prev, lastUserMessage, textResponse)
         );
 
+        // Always return the response message, even if no data changes
         return {
           response: textResponse,
           updatedData,
@@ -288,12 +364,13 @@ export const useAIChat = () => {
         };
       } finally {
         setIsLoading(false);
+        setLoadingStep(null);
       }
     },
     []
   );
 
-  return { sendMessage, isLoading, error };
+  return { sendMessage, isLoading, loadingStep, error };
 };
 
 // Simple summariser: keep first 1000 chars, add latest message snippets
