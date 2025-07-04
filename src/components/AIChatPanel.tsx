@@ -312,10 +312,42 @@ interface Asset {
   specifications?: any;
 }
 
-// Custom paragraph renderer to tighten spacing
-const MarkdownParagraph: React.FC<any> = ({ node, ...props }) => (
-  <p className="mb-2 last:mb-0" {...props} />
-);
+// Custom markdown components for proper formatting
+const MarkdownComponents = {
+  p: ({ node, ...props }: any) => (
+    <p className="mb-2 last:mb-0" {...props} />
+  ),
+  ul: ({ node, ...props }: any) => (
+    <ul className="mb-2 last:mb-0 ml-4 list-disc space-y-1" {...props} />
+  ),
+  ol: ({ node, ...props }: any) => (
+    <ol className="mb-2 last:mb-0 ml-4 list-decimal space-y-1" {...props} />
+  ),
+  li: ({ node, ...props }: any) => (
+    <li className="text-sm leading-relaxed" {...props} />
+  ),
+  h1: ({ node, ...props }: any) => (
+    <h1 className="text-lg font-semibold mb-2 mt-4 first:mt-0" {...props} />
+  ),
+  h2: ({ node, ...props }: any) => (
+    <h2 className="text-base font-semibold mb-2 mt-3 first:mt-0" {...props} />
+  ),
+  h3: ({ node, ...props }: any) => (
+    <h3 className="text-sm font-semibold mb-1 mt-2 first:mt-0" {...props} />
+  ),
+  strong: ({ node, ...props }: any) => (
+    <strong className="font-semibold" {...props} />
+  ),
+  em: ({ node, ...props }: any) => (
+    <em className="italic" {...props} />
+  ),
+  code: ({ node, ...props }: any) => (
+    <code className="bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded text-xs font-mono" {...props} />
+  ),
+  blockquote: ({ node, ...props }: any) => (
+    <blockquote className="border-l-4 border-gray-300 dark:border-gray-600 pl-4 py-2 my-2 italic text-gray-700 dark:text-gray-300" {...props} />
+  ),
+};
 
 // Helper function to get loading step details
 const getLoadingStepDetails = (
@@ -791,7 +823,7 @@ export function AIChatPanel({
                           {message.role === "assistant" ? (
                             <div className="text-sm leading-relaxed break-words">
                               <ReactMarkdown
-                                components={{ p: MarkdownParagraph }}
+                                components={MarkdownComponents}
                               >
                                 {message.content}
                               </ReactMarkdown>
